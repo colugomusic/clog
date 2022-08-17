@@ -1,5 +1,8 @@
 # clog
 
+- [expire.hpp](#expirehpp)
+- [idle.hpp](#idlehpp)
+
 ## expire.hpp
 
 ```c++
@@ -98,4 +101,61 @@ struct observer
   
   clog::expiry_observer thing_expiry_;
 };
+```
+
+## idle.hpp
+
+Safely and efficiently push tasks onto a queue to be executed "during idle time".
+
+The concept of "idle time" is whatever you want it to be but the motivating usage is a system based on a typical event loop where `idle_task_processor::process_all() can be called at regular intervals.
+
+An ID can be passed along with any task to prevent it from being run more than once per idle frame.
+
+```c++
+clog::idle_task_processor processor;
+
+struct object
+{
+  clog::idle_task_pusher pusher { processor.make_idle_task_pusher() };
+  
+  auto foobar() -> void
+  {
+    pusher.push([this]()
+    {
+      // This task will be run the next time the task queue is processed.
+      
+      // Note that `this` is being captured which suggests that this object
+      // will be accessed. This is safe even if this object is deleted before
+      // the task queue is processed, because when `pusher` goes out of scope
+      // the task will be removed from the queue automatically, and won't
+      // ever be run.
+    });
+    
+    // IDs for tasks that should only be run at most once each time the
+    // task queue is processed.
+    //
+    // These IDs are local to the pusher
+    enum class task_id
+    {
+      some_task,
+      another_task,
+    };
+    
+    // This task won't be pushed if a task with the same ID was already
+    // pushed since the last time the task queue was processed.
+    pusher.push(task_id::some_task, []()
+    {
+      // This task will only be run, at most, once every time the task queue
+      // is processed.
+    });
+    
+    // Note that for performance reasons the task IDs are used as indices
+    // into an array, so they should start at zero and increment by 1 (so
+    // an enum works fine.)
+    //
+    // So don't just use an ID like '500' or something because when the
+    // pusher sees '500' it will allocate memory for that many indexed tasks.
+  }
+};
+
 ```
