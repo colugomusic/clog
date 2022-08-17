@@ -107,7 +107,7 @@ struct observer
 
 Safely and efficiently push tasks onto a queue to be executed "during idle time".
 
-The concept of "idle time" is whatever you want it to be but the motivating usage is a system based on a typical event loop where `idle_task_processor::process_all() can be called at regular intervals.
+The concept of "idle time" is whatever you want it to be but the motivating usage is a system based on a typical event loop where `idle_task_processor::process_all()` can be called at regular intervals.
 
 An ID can be passed along with any task to prevent it from being run more than once per idle frame.
 
