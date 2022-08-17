@@ -5,13 +5,18 @@
 
 ## expire.hpp
 [include/clog/expire.hpp](include/clog/expire.hpp)
+
+Allow interconnected objects to let each other know when they have been deleted, or will be deleted soon. Register tasks to run when objects expire.
+
 ```c++
 struct thing : public clog::expirable { ... };
 thing my_thing;
 ...
 //
 // A one-shot "expiry" signal. Expected usage is to call this when
-// the object has not been deleted yet but probably will be soon.
+// the object is going to be deleted soon. If the signal is not
+// emitted explicitly then it will always be emitted automatically
+// in the destructor.
 //
 // Any references to this object should consider it to be in an
 // expired state from now on, i.e. it should be considered to be
