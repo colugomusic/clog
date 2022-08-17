@@ -13,7 +13,7 @@ namespace detail {
 
 struct I_expiry_cell_body
 {
-	virtual auto expire() -> void = 0;
+	virtual auto expire() -> expiry_task = 0;
 };
 
 class expiry_cell_body : public I_expiry_cell_body
@@ -42,9 +42,9 @@ public:
 
 private:
 	
-	auto expire() -> void override;
+	auto expire() -> expiry_task override;
 
-	clog::expiry_task expiry_task_;
+	clog::expiry_task expiry_task_{};
 };
 
 template <class T>
@@ -62,11 +62,11 @@ public:
 
 private:
 	
-	auto expire() -> void override;
+	auto expire() -> expiry_task override;
 	auto on_expired(clog::expiry_task expiry_task) -> void;
 
 	T* raw_ptr_{};
-	clog::expiry_task expiry_task_;
+	clog::expiry_task expiry_task_{};
 };
 
 } // detail
@@ -118,10 +118,6 @@ public:
 	auto make_expiry_pointer() const -> expiry_pointer<T>;
 	auto make_expiry_observer(clog::expiry_task expiry_task) -> expiry_observer;
 	auto observe_expiry(clog::expiry_task expiry_task) -> void;
-
-protected:
-
-	clog::expiry_task on_expired;
 
 private:
 
@@ -206,9 +202,9 @@ inline expiry_observer_body& expiry_observer_body::operator=(expiry_observer_bod
 	return *this;
 }
 
-inline auto expiry_observer_body::expire() -> void
+inline auto expiry_observer_body::expire() -> expiry_task
 {
-	expiry_task_();
+	return expiry_task_;
 }
 
 ///////////////////////////////////////
@@ -246,15 +242,12 @@ expiry_pointer_body<T>& expiry_pointer_body<T>::operator=(expiry_pointer_body &&
 }
 
 template <class T>
-auto expiry_pointer_body<T>::expire() -> void
+auto expiry_pointer_body<T>::expire() -> expiry_task
 {
-	if (expiry_task_)
-	{
-		expiry_task_();
-	}
-
 	object_ = {};
 	raw_ptr_ = {};
+
+	return expiry_task;
 }
 
 template <class T>
@@ -315,13 +308,11 @@ inline auto expirable::expire() -> void
 {
 	if (expired_) return;
 
-	if (on_expired) on_expired();
-
 	for (auto cell : cells_.cells)
 	{
 		if (!cell) continue;
 
-		cell->expire();
+		cell->expire()();
 	}
 
 	for (auto expiry_task : expiry_tasks_)
