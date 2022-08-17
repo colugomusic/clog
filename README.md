@@ -59,6 +59,8 @@ struct observer
       // Otherwise, use `make_expiry_observer` instead (see below)
     };
     
+    // Note that there is no way to remove this connection once it
+    // has been added. It stays alive for the lifetime of `my_thing`.
     my_thing->observe_expiry(on_expired_1);
     
     ...
@@ -73,13 +75,15 @@ struct observer
       // this task won't ever be run anymore.
     };
     
+    // This connection stays alive until `thing_expiry_` goes out
+    // of scope, or `my_thing` is deleted.
     thing_expiry_ = my_thing->make_expiry_observer(on_expired_2);
     
     ...
     
     //
-    // Creating a pointer to `my_thing` which knows when it has
-    // been expired or deleted.
+    // Creating a smart pointer to `my_thing` which knows when it
+    // has been expired or deleted.
     //
     auto expiry_pointer = my_thing->make_expiry_pointer<thing>();
     
