@@ -34,7 +34,7 @@ thing my_thing;
 // some other method. Instead, the code path which references the
 // object can just be turned off completely when the object is expired.
 //
-// Expire is called automatically by the destructor, if it hasn't
+// `expire` is called automatically by the destructor, if it hasn't
 // already been called at that point.
 //
 my_thing.expire();
