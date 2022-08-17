@@ -4,7 +4,7 @@
 - [idle.hpp](#idlehpp)
 
 ## expire.hpp
-
+[include/clog/expire.hpp](include/clog/expire.hpp)
 ```c++
 struct thing : public clog::expirable { ... };
 thing my_thing;
@@ -104,6 +104,7 @@ struct observer
 ```
 
 ## idle.hpp
+[include/clog/idle.hpp](include/clog/idle.hpp)
 
 Safely push tasks onto a queue to be executed efficiently "during idle time".
 
