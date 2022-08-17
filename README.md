@@ -114,6 +114,11 @@ An ID can be passed along with any task to prevent it from being run more than o
 ```c++
 clog::idle_task_processor processor;
 
+auto idle_time() -> void
+{
+  processor.process_all();
+}
+
 struct object
 {
   clog::idle_task_pusher pusher { processor.make_idle_task_pusher() };
