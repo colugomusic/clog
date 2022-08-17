@@ -21,6 +21,16 @@ public:
 
 	using index_t = size_t;
 
+	auto make_pusher() -> idle_task_pusher;
+	auto process_all() -> void;
+
+private:
+
+	auto get_empty_slot() -> index_t;
+	auto push(index_t slot, idle_task task) -> void;
+	auto push(index_t slot, idle_task task, index_t index) -> void;
+	auto release(index_t slot) -> int;
+
 	struct slot
 	{
 		bool occupied{ false };
@@ -52,16 +62,6 @@ public:
 		task_vector tasks_;
 		task_vector pushed_while_processing_;
 	};
-
-	auto make_pusher() -> idle_task_pusher;
-	auto process_all() -> void;
-
-private:
-
-	auto get_empty_slot() -> index_t;
-	auto push(index_t slot, idle_task task) -> void;
-	auto push(index_t slot, idle_task task, index_t index) -> void;
-	auto release(index_t slot) -> int;
 
 	std::vector<slot> slots_;
 	std::vector<index_t> busy_slots_;
