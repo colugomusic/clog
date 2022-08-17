@@ -105,7 +105,7 @@ struct observer
 
 ## idle.hpp
 
-Safely and efficiently push tasks onto a queue to be executed "during idle time".
+Safely push tasks onto a queue to be executed efficiently "during idle time".
 
 The concept of "idle time" is whatever you want it to be but the motivating usage is a system based on a typical event loop where `idle_task_processor::process_all()` can be called at regular intervals.
 
