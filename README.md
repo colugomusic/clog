@@ -131,7 +131,7 @@ auto idle_time() -> void
 
 struct object
 {
-  clog::idle_task_pusher pusher { processor.make_idle_task_pusher() };
+  clog::idle_task_pusher pusher { processor.make_pusher() };
   
   auto foobar() -> void
   {
