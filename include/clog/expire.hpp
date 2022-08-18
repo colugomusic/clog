@@ -25,6 +25,10 @@ public:
 	expiry_cell_body& operator=(expiry_cell_body && rhs) noexcept;
 	~expiry_cell_body();
 
+protected:
+
+	auto release() -> void;
+
 private:
 
 	expirable* object_;
@@ -171,9 +175,16 @@ inline expiry_cell_body& expiry_cell_body::operator=(expiry_cell_body && rhs) no
 
 inline expiry_cell_body::~expiry_cell_body()
 {
+	release();
+}
+
+inline auto expiry_cell_body::release() -> void
+{
 	if (!object_) return;
 
 	object_->release(cell_);
+	object_ = {};
+	cell_ = {};
 }
 
 ///////////////////////////////////////
@@ -204,6 +215,8 @@ inline expiry_observer_body& expiry_observer_body::operator=(expiry_observer_bod
 
 inline auto expiry_observer_body::expire() -> expiry_task
 {
+	expiry_cell_body::release();
+
 	return expiry_task_;
 }
 
@@ -244,10 +257,12 @@ expiry_pointer_body<T>& expiry_pointer_body<T>::operator=(expiry_pointer_body &&
 template <class T>
 auto expiry_pointer_body<T>::expire() -> expiry_task
 {
+	expiry_cell_body::release();
+
 	object_ = {};
 	raw_ptr_ = {};
 
-	return expiry_task;
+	return expiry_task_;
 }
 
 template <class T>
@@ -312,7 +327,9 @@ inline auto expirable::expire() -> void
 	{
 		if (!cell) continue;
 
-		cell->expire()();
+		const auto expiry_task { cell->expire() };
+
+		expiry_task();
 	}
 
 	for (auto expiry_task : expiry_tasks_)
