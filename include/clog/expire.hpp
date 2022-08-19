@@ -64,6 +64,11 @@ public:
 	auto get() { return raw_ptr_; }
 	auto get() const { return raw_ptr_; }
 
+	friend inline auto operator != (const expiry_pointer_body<T>& lhs, const T* rhs)
+	{
+		return lhs.raw_ptr_ != rhs;
+	}
+
 private:
 	
 	auto expire() -> expiry_task override;
@@ -103,6 +108,11 @@ public:
 	auto operator->() { return get(); }
 	auto is_expired() const -> bool { return get(); }
 	auto on_expired(clog::expiry_task expiry_task) -> void;
+
+	friend inline auto operator != (const expiry_pointer<T>& lhs, const T* rhs)
+	{
+		return *lhs.body_ != rhs;
+	}
 
 private:
 
