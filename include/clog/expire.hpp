@@ -117,7 +117,7 @@ public:
 	//auto& operator*() { return *get(); }
 	auto operator->() const { return get(); }
 	//auto operator->() { return get(); }
-	auto is_expired() const -> bool { return get(); }
+	auto is_expired() const -> bool { return !get(); }
 	auto on_expired(clog::expiry_task expiry_task) -> void;
 
 	friend inline auto operator == (const expiry_pointer<T>& lhs, const expiry_pointer<T>& rhs)
