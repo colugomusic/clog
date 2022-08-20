@@ -100,12 +100,12 @@ public:
 	expiry_pointer() = default;
 	expiry_pointer(std::unique_ptr<detail::expiry_pointer_body<T>> body);
 
-	auto get() -> T*;
-	auto get() const -> const T*;
+	auto clone() const -> expiry_pointer<T>;
+	auto get() const -> T*;
 	auto& operator*() const { return *get(); }
-	auto& operator*() { return *get(); }
+	//auto& operator*() { return *get(); }
 	auto operator->() const { return get(); }
-	auto operator->() { return get(); }
+	//auto operator->() { return get(); }
 	auto is_expired() const -> bool { return get(); }
 	auto on_expired(clog::expiry_task expiry_task) -> void;
 
@@ -129,7 +129,7 @@ public:
 	auto is_expired() const -> bool;
 
 	template <class T>
-	auto make_expiry_pointer() const -> expiry_pointer<T>;
+	auto make_expiry_pointer() -> expiry_pointer<T>;
 	auto make_expiry_observer(clog::expiry_task expiry_task) -> expiry_observer;
 	auto observe_expiry(clog::expiry_task expiry_task) -> void;
 
@@ -269,7 +269,6 @@ auto expiry_pointer_body<T>::expire() -> expiry_task
 {
 	expiry_cell_body::release();
 
-	object_ = {};
 	raw_ptr_ = {};
 
 	return expiry_task_;
@@ -301,13 +300,19 @@ expiry_pointer<T>::expiry_pointer(std::unique_ptr<detail::expiry_pointer_body<T>
 }
 
 template <class T>
-auto expiry_pointer<T>::get() -> T*
+auto expiry_pointer<T>::clone() const -> expiry_pointer<T>
 {
-	return body_.get()->get();
+	return body_.get()->get()->make_expiry_pointer<T>();
 }
 
+//template <class T>
+//auto expiry_pointer<T>::get() -> T*
+//{
+//	return body_.get()->get();
+//}
+
 template <class T>
-auto expiry_pointer<T>::get() const -> const T*
+auto expiry_pointer<T>::get() const -> T*
 {
 	return body_.get()->get();
 }
@@ -356,13 +361,13 @@ inline auto expirable::is_expired() const -> bool
 }
 
 template <class T>
-auto expirable::make_expiry_pointer() const -> expiry_pointer<T>
+auto expirable::make_expiry_pointer() -> expiry_pointer<T>
 {
-	const auto cell { pointers_.get_empty_cell() };
+	const auto cell { cells_.get_empty_cell() };
 
-	auto body { std::make_unique<expiry_pointer_body<T>>(this, cell, static_cast<T*>(this)) };
+	auto body { std::make_unique<detail::expiry_pointer_body<T>>(this, cell, static_cast<T*>(this)) };
 
-	pointers_.cells[cell].body = body.get();
+	cells_.cells[cell] = body.get();
 
 	return { std::move(body) };
 }
