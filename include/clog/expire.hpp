@@ -64,9 +64,14 @@ public:
 	auto get() { return raw_ptr_; }
 	auto get() const { return raw_ptr_; }
 
-	friend inline auto operator != (const expiry_pointer_body<T>& lhs, const T* rhs)
+	friend inline auto operator == (const expiry_pointer_body<T>& lhs, const expiry_pointer_body<T>& rhs)
 	{
-		return lhs.raw_ptr_ != rhs;
+		return lhs.raw_ptr_ == rhs.raw_ptr_;
+	}
+
+	friend inline auto operator == (const expiry_pointer_body<T>& lhs, const T* rhs)
+	{
+		return lhs.raw_ptr_ == rhs;
 	}
 
 private:
@@ -76,6 +81,8 @@ private:
 
 	T* raw_ptr_{};
 	clog::expiry_task expiry_task_{};
+
+	friend struct std::hash<expiry_pointer_body<T>>;
 };
 
 } // detail
@@ -98,7 +105,11 @@ class expiry_pointer
 public:
 
 	expiry_pointer() = default;
+	expiry_pointer(T* raw_ptr);
+	expiry_pointer(const expiry_pointer<T>& rhs);
 	expiry_pointer(std::unique_ptr<detail::expiry_pointer_body<T>> body);
+
+	operator T*();
 
 	auto clone() const -> expiry_pointer<T>;
 	auto get() const -> T*;
@@ -109,14 +120,31 @@ public:
 	auto is_expired() const -> bool { return get(); }
 	auto on_expired(clog::expiry_task expiry_task) -> void;
 
+	friend inline auto operator == (const expiry_pointer<T>& lhs, const expiry_pointer<T>& rhs)
+	{
+		return *lhs.body_ == *rhs.body_;
+	}
+
+	friend inline auto operator == (const expiry_pointer<T>& lhs, const T* rhs)
+	{
+		return *lhs.body_ == rhs;
+	}
+
 	friend inline auto operator != (const expiry_pointer<T>& lhs, const T* rhs)
 	{
-		return *lhs.body_ != rhs;
+		return !(lhs == rhs);
+	}
+
+	friend inline auto operator < (const expiry_pointer<T>& lhs, const expiry_pointer<T>& rhs)
+	{
+		return *lhs.body_ < *rhs.body_;
 	}
 
 private:
 
 	std::unique_ptr<detail::expiry_pointer_body<T>> body_;
+
+	friend struct std::hash<clog::expiry_pointer<T>>;
 };
 
 class expirable
@@ -132,6 +160,9 @@ public:
 	auto make_expiry_pointer() -> expiry_pointer<T>;
 	auto make_expiry_observer(clog::expiry_task expiry_task) -> expiry_observer;
 	auto observe_expiry(clog::expiry_task expiry_task) -> void;
+
+	template <class T>
+	auto make_expiry_pointer_body() -> std::unique_ptr<detail::expiry_pointer_body<T>>;
 
 private:
 
@@ -300,6 +331,24 @@ expiry_pointer<T>::expiry_pointer(std::unique_ptr<detail::expiry_pointer_body<T>
 }
 
 template <class T>
+expiry_pointer<T>::expiry_pointer(T* raw_ptr)
+	: body_{ raw_ptr->make_expiry_pointer_body<T>() }
+{
+}
+
+template <class T>
+expiry_pointer<T>::expiry_pointer(const expiry_pointer<T>& rhs)
+	: body_{ rhs.get()->make_expiry_pointer_body<T>() }
+{
+}
+
+template <class T>
+expiry_pointer<T>::operator T*()
+{
+	return get();
+}
+
+template <class T>
 auto expiry_pointer<T>::clone() const -> expiry_pointer<T>
 {
 	return body_.get()->get()->make_expiry_pointer<T>();
@@ -363,13 +412,19 @@ inline auto expirable::is_expired() const -> bool
 template <class T>
 auto expirable::make_expiry_pointer() -> expiry_pointer<T>
 {
+	return { make_expiry_pointer_body() };
+}
+
+template <class T>
+auto expirable::make_expiry_pointer_body() -> std::unique_ptr<detail::expiry_pointer_body<T>>
+{
 	const auto cell { cells_.get_empty_cell() };
 
-	auto body { std::make_unique<detail::expiry_pointer_body<T>>(this, cell, static_cast<T*>(this)) };
+	auto out { std::make_unique<detail::expiry_pointer_body<T>>(this, cell, static_cast<T*>(this)) };
 
-	cells_.cells[cell] = body.get();
+	cells_.cells[cell] = out.get();
 
-	return { std::move(body) };
+	return out;
 }
 
 inline auto expirable::make_expiry_observer(clog::expiry_task expiry_task) -> expiry_observer
@@ -427,3 +482,25 @@ inline auto expirable::cell_array::release(size_t cell) -> void
 }
 
 } // clog
+
+namespace std {
+
+template <typename T>
+struct hash<clog::detail::expiry_pointer_body<T>>
+{
+    auto operator()(const clog::detail::expiry_pointer_body<T>& ptr) const -> std::size_t
+    {
+        return hash<T*>()(ptr.raw_ptr_);
+    }
+};
+
+template <typename T>
+struct hash<clog::expiry_pointer<T>>
+{
+    auto operator()(const clog::expiry_pointer<T>& ptr) const -> std::size_t
+    {
+        return hash<clog::detail::expiry_pointer_body<T>>()(*ptr.body_);
+    }
+};
+
+} // std
