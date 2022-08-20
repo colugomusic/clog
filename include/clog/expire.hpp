@@ -391,7 +391,11 @@ inline auto expirable::expire() -> void
 	{
 		if (!cell) continue;
 
+		// Release the cell and get the
+		// expiry task if there is one
 		const auto expiry_task { cell->expire() };
+
+		if (!expiry_task) continue;
 
 		expiry_task();
 	}
