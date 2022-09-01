@@ -12,13 +12,20 @@ namespace clog {
 // Duplicate elements are not allowed
 //
 template <class T>
-class sometimes_sorted_vector : public std::vector<T>
+class sometimes_sorted_vector_unchecked : public std::vector<T>
 {
 public:
 
 	using const_iterator = typename std::vector<T>::const_iterator;
 	using iterator = typename std::vector<T>::iterator;
 	using size_type = typename std::vector<T>::size_type;
+
+	sometimes_sorted_vector() = default;
+
+	sometimes_sorted_vector(std::vector<T> && vec)
+		: std::vector<T>(std::forward<std::vector<T>>(vec))
+	{
+	}
 
 	auto contains(T item) const -> bool
 	{
@@ -54,6 +61,24 @@ public:
 		std::vector<T>::erase(pos);
 
 		return 1;
+	}
+};
+
+template <typename T>
+struct sometimes_sorted_vector : public sometimes_sorted_vector_unchecked<T>
+{
+	auto insert(T item) -> void
+	{
+		const auto [pos, success] = sometimes_sorted_vector_unchecked<T>::insert(item);
+
+		assert (success);
+	}
+
+	auto erase(T item) -> void
+	{
+		const auto result = sometimes_sorted_vector_unchecked<T>::erase(item);
+
+		assert (result == 1);
 	}
 };
 
