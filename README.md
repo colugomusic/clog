@@ -2,6 +2,7 @@
 
 - [expire.hpp](#expirehpp)
 - [idle.hpp](#idlehpp)
+- [sometimes_sorted_vector.hpp](#sometimes_sorted_vector)
 
 ## expire.hpp
 [include/clog/expire.hpp](include/clog/expire.hpp)
@@ -174,3 +175,36 @@ struct object
 };
 
 ```
+
+## sometimes_sorted_vector.hpp
+[include/clog/sometimes_sorted_vector.hpp](include/clog/sometimes_sorted_vector.hpp)
+
+Extends `std::vector` to add the following methods:
+
+### `contains(T item) const -> bool`
+
+Precondition: The vector must be sorted.
+
+Performs a binary search to check if the value is in the vector.
+
+### `insert(T item) -> std::pair<iterator, bool>`
+
+Precondition: The vector must be sorted.
+
+Inserts the value into the sorted vector.
+
+Returns: `std::pair<(iterator to inserted item), (true if insertion was successful)>`
+
+### `erase(T item) -> size_type`
+
+Precondition: The vector must be sorted.
+
+Removes the value from the sorted vector.
+
+Returns the number of items removed (0 or 1).
+
+### Notes
+
+- The vector is allowed to become unsorted (e.g. if you manipulate it using the normal `std::vector` methods.)
+- Calling the above functions on an unsorted vector is invalid.
+- It is the client's responsibility to keep track of whether or not the vector is currently sorted.
