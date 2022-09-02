@@ -12,7 +12,7 @@ namespace clog {
 // Duplicate elements are not allowed
 //
 template <class T>
-class sometimes_sorted_vector_unchecked : public std::vector<T>
+class sometimes_sorted_vector : public std::vector<T>
 {
 public:
 
@@ -65,18 +65,25 @@ public:
 };
 
 template <typename T>
-struct sometimes_sorted_vector : public sometimes_sorted_vector_unchecked<T>
+struct sometimes_sorted_vector_checked : public sometimes_sorted_vector<T>
 {
+	sometimes_sorted_vector_checked() = default;
+
+	sometimes_sorted_vector_checked(std::vector<T> && vec)
+		: clog::sometimes_sorted_vector<T>(std::forward<std::vector<T>>(vec))
+	{
+	}
+
 	auto insert(T item) -> void
 	{
-		const auto [pos, success] = sometimes_sorted_vector_unchecked<T>::insert(item);
+		const auto [pos, success] = sometimes_sorted_vector<T>::insert(item);
 
 		assert (success);
 	}
 
 	auto erase(T item) -> void
 	{
-		const auto result = sometimes_sorted_vector_unchecked<T>::erase(item);
+		const auto result = sometimes_sorted_vector<T>::erase(item);
 
 		assert (result == 1);
 	}
