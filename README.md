@@ -2,7 +2,7 @@
 
 - [expire.hpp](#expirehpp)
 - [idle.hpp](#idlehpp)
-- [sometimes_sorted_vector.hpp](#sometimes_sorted_vector)
+- [sometimes_sorted_vector.hpp](#sometimes_sorted_vectorhpp)
 
 ## expire.hpp
 [include/clog/expire.hpp](include/clog/expire.hpp)
