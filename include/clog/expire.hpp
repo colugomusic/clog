@@ -387,6 +387,8 @@ inline auto expirable::expire() -> void
 {
 	if (expired_) return;
 
+	expired_ = true;
+
 	for (auto cell : cells_.cells)
 	{
 		if (!cell) continue;
@@ -404,8 +406,6 @@ inline auto expirable::expire() -> void
 	{
 		expiry_task();
 	}
-
-	expired_ = true;
 }
 
 inline auto expirable::is_expired() const -> bool
