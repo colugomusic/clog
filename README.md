@@ -181,13 +181,17 @@ struct object
 
 Operations for manipulating sorted vectors.
 
-### `vectors::sorted::contains(const std::vector<T>& vector, T value) -> bool`
+---
+`vectors::sorted::`
+`contains(const std::vector<T>& vector, T value) -> bool`
 
 Precondition: The vector must be sorted.
 
 Returns: true if the value is in the vector.
 
-### `vectors::sorted::insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
+---
+`vectors::sorted::`
+`insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
 
 Precondition: The vector must be sorted.
 
@@ -195,7 +199,9 @@ Inserts the value into the sorted vector.
 
 Returns: `std::pair<(iterator to inserted item), (true if insertion was successful)>`
 
-### `vectors::sorted::erase_all(std::vector<T>* vector, T value) -> typename std::vector<T>::size_type`
+---
+`vectors::sorted::`
+`erase_all(std::vector<T>* vector, T value) -> typename std::vector<T>::size_type`
 
 Precondition: The vector must be sorted.
 
@@ -203,7 +209,9 @@ Removes all instances of the value from the sorted vector.
 
 Returns: the number of items removed.
 
-### `vectors::sorted::unique::insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
+---
+`vectors::sorted::unique::`
+`insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
 
 Precondition: The vector must be sorted.
 
@@ -213,7 +221,9 @@ Fails if the value is already in the vector.
 
 Returns: `std::pair<(iterator to inserted item), (true if insertion was successful)>`
 
-### `vectors::sorted::unique::checked::insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
+---
+`vectors::sorted::unique::checked::`
+`insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
 
 Precondition: The vector must be sorted.
 
@@ -221,7 +231,9 @@ Asserts that the value does not already exist in the vector.
 
 Inserts the value into the sorted vector.
 
-### `vectors::sorted::unique::checked::erase(std::vector<T>* vector, T value) -> void`
+---
+`vectors::sorted::unique::checked::`
+`erase(std::vector<T>* vector, T value) -> void`
 
 Precondition: The vector must be sorted.
 
