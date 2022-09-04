@@ -2,7 +2,7 @@
 
 - [expire.hpp](#expirehpp)
 - [idle.hpp](#idlehpp)
-- [sometimes_sorted_vector.hpp](#sometimes_sorted_vectorhpp)
+- [vectors.hpp](#vectorshpp)
 
 ## expire.hpp
 [include/clog/expire.hpp](include/clog/expire.hpp)
@@ -176,18 +176,18 @@ struct object
 
 ```
 
-## sometimes_sorted_vector.hpp
-[include/clog/sometimes_sorted_vector.hpp](include/clog/sometimes_sorted_vector.hpp)
+## vectors.hpp
+[include/clog/vectors.hpp](include/clog/vectors.hpp)
 
-Extends `std::vector` to add the following methods:
+Operations for manipulating sorted vectors.
 
-### `contains(T item) const -> bool`
+### `vectors::sorted::contains(const std::vector<T>& vector, T value) -> bool`
 
 Precondition: The vector must be sorted.
 
-Performs a binary search to check if the value is in the vector.
+Returns: true if the value is in the vector.
 
-### `insert(T item) -> std::pair<iterator, bool>`
+### `vectors::sorted::insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
 
 Precondition: The vector must be sorted.
 
@@ -195,16 +195,36 @@ Inserts the value into the sorted vector.
 
 Returns: `std::pair<(iterator to inserted item), (true if insertion was successful)>`
 
-### `erase(T item) -> size_type`
+### `vectors::sorted::erase_all(std::vector<T>* vector, T value) -> typename std::vector<T>::size_type`
+
+Precondition: The vector must be sorted.
+
+Removes all instances of the value from the sorted vector.
+
+Returns: the number of items removed.
+
+### `vectors::sorted::unique::insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
+
+Precondition: The vector must be sorted.
+
+Inserts the value into the sorted vector.
+
+Fails if the value is already in the vector.
+
+Returns: `std::pair<(iterator to inserted item), (true if insertion was successful)>`
+
+### `vectors::sorted::unique::checked::insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>`
+
+Precondition: The vector must be sorted.
+
+Asserts that the value does not already exist in the vector.
+
+Inserts the value into the sorted vector.
+
+### `vectors::sorted::unique::checked::erase(std::vector<T>* vector, T value) -> void`
 
 Precondition: The vector must be sorted.
 
 Removes the value from the sorted vector.
 
-Returns the number of items removed (0 or 1).
-
-### Notes
-
-- The vector is allowed to become unsorted (e.g. if you manipulate it using the normal `std::vector` methods.)
-- Calling the above functions on an unsorted vector is invalid.
-- It is the client's responsibility to keep track of whether or not the vector is currently sorted.
+Asserts that exactly one element was removed.
