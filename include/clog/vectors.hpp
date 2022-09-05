@@ -124,8 +124,6 @@ public:
 
 		remove_count_++;
 
-		std::cout << int64_t(this) << ": " << remove_count_ << "\n";
-
 		lazy_sort();
 	}
 
@@ -157,7 +155,6 @@ private:
 
 		sorted_ = true;
 		remove_count_ = 0;
-		std::cout << int64_t(this) << ": " << remove_count_ << "\n";
 	}
 
 	Compare comparator_;
