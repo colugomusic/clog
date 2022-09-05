@@ -119,12 +119,7 @@ public:
 
 		assert (pos != std::end(vector_));
 
-		// Swap to the end of the vector. It will be discarded later.
-		std::iter_swap(pos, std::end(vector_)-1);
-
-		remove_count_++;
-
-		lazy_sort();
+		vector_.erase(pos);
 	}
 
 	auto begin() -> iterator { do_sort(); return std::begin(vector_); }
@@ -140,7 +135,7 @@ public:
 	auto crbegin() const -> const_reverse_iterator { do_sort(); return std::crbegin(vector_); }
 	auto crend() const -> const_reverse_iterator { do_sort(); return std::crend(vector_); }
 	auto contains(T* core) const -> bool { do_sort(); return sorted::contains(vector_, core, comparator_); }
-	auto empty() const { return vector_.size() - remove_count_ == 0; }
+	auto empty() const { return vector_.empty(); }
 	auto size() const { do_sort(); return vector_.size(); }
 	auto lazy_sort() { sorted_ = false; }
 
@@ -150,15 +145,12 @@ private:
 	{
 		if (sorted_) return;
 
-		vector_.resize(vector_.size() - remove_count_);
 		std::sort(std::begin(vector_), std::end(vector_), comparator_);
 
 		sorted_ = true;
-		remove_count_ = 0;
 	}
 
 	Compare comparator_;
-	mutable size_type remove_count_{ 0 };
 	mutable vector_type vector_;
 	mutable bool sorted_{ true };
 };
