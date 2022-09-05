@@ -16,6 +16,14 @@ auto contains(const std::vector<T>& vector, T value) -> bool
 	return std::binary_search(std::cbegin(vector), std::cend(vector), value);
 }
 
+template <typename T, typename Compare>
+auto contains(const std::vector<T>& vector, T value, Compare compare) -> bool
+{
+	assert (std::is_sorted(std::cbegin(vector), std::cend(vector), compare));
+
+	return std::binary_search(std::cbegin(vector), std::cend(vector), value, compare);
+}
+
 // Insert the value into the sorted vector.
 // Precondition: The vector is sorted.
 template <typename T>
@@ -30,6 +38,15 @@ auto insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T
 	return { pos, true };
 }
 
+// Add the range to the vector and then sort the entire vector.
+// The vector does not need to be pre-sorted.
+template <typename T, typename Begin, typename End>
+auto insert(std::vector<T>* vector, Begin begin, End end) -> void
+{
+	std::copy(begin, end, std::back_inserter(*vector));
+	std::sort(std::begin(*vector), std::end(*vector));
+}
+
 // Erase all instances of the value from the sorted vector.
 // Precondition: The vector is sorted.
 template <typename T>
@@ -39,7 +56,7 @@ auto erase_all(std::vector<T>* vector, T value) -> typename std::vector<T>::size
 
 	auto beg { std::lower_bound(std::cbegin(*vector), std::cend(*vector), value) };
 
-	if (beg == std::cend(*vector) || *pos != value) return 0;
+	if (beg == std::cend(*vector) || *beg != value) return 0;
 
 	auto end { std::upper_bound(beg, std::cend(*vector), value) };
 
