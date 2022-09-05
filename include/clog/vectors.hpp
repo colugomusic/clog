@@ -25,6 +25,26 @@ auto contains(const std::vector<T>& vector, T value, Compare compare) -> bool
 	return std::binary_search(std::cbegin(vector), std::cend(vector), value, compare);
 }
 
+// Erase all instances of the value from the sorted vector.
+// Precondition: The vector is sorted.
+template <typename T>
+auto erase_all(std::vector<T>* vector, T value) -> typename std::vector<T>::size_type
+{
+	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector)));
+
+	auto beg { std::lower_bound(std::cbegin(*vector), std::cend(*vector), value) };
+
+	if (beg == std::cend(*vector) || *beg != value) return 0;
+
+	auto end { std::upper_bound(beg, std::cend(*vector), value) };
+
+	const auto count { std::distance(beg, end) };
+
+	vector->erase(beg, end);
+
+	return count;
+}
+
 // Insert the value into the sorted vector.
 // Precondition: The vector is sorted.
 template <typename T>
@@ -46,26 +66,6 @@ auto insert(std::vector<T>* vector, Begin begin, End end) -> void
 {
 	std::copy(begin, end, std::back_inserter(*vector));
 	std::sort(std::begin(*vector), std::end(*vector));
-}
-
-// Erase all instances of the value from the sorted vector.
-// Precondition: The vector is sorted.
-template <typename T>
-auto erase_all(std::vector<T>* vector, T value) -> typename std::vector<T>::size_type
-{
-	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector)));
-
-	auto beg { std::lower_bound(std::cbegin(*vector), std::cend(*vector), value) };
-
-	if (beg == std::cend(*vector) || *beg != value) return 0;
-
-	auto end { std::upper_bound(beg, std::cend(*vector), value) };
-
-	const auto count { std::distance(beg, end) };
-
-	vector->erase(beg, end);
-
-	return count;
 }
 
 namespace unique {
@@ -124,6 +124,8 @@ public:
 
 		remove_count_++;
 
+		std::cout << int64_t(this) << ": " << remove_count_ << "\n";
+
 		lazy_sort();
 	}
 
@@ -140,7 +142,7 @@ public:
 	auto crbegin() const -> const_reverse_iterator { do_sort(); return std::crbegin(vector_); }
 	auto crend() const -> const_reverse_iterator { do_sort(); return std::crend(vector_); }
 	auto contains(T* core) const -> bool { do_sort(); return sorted::contains(vector_, core, comparator_); }
-	auto empty() const { return vector_.empty(); }
+	auto empty() const { return vector_.size() - remove_count_ == 0; }
 	auto size() const { do_sort(); return vector_.size(); }
 	auto lazy_sort() { sorted_ = false; }
 
@@ -155,6 +157,7 @@ private:
 
 		sorted_ = true;
 		remove_count_ = 0;
+		std::cout << int64_t(this) << ": " << remove_count_ << "\n";
 	}
 
 	Compare comparator_;
