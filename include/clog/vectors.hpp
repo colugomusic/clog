@@ -89,17 +89,92 @@ auto insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T
 	return { pos, true };
 }
 
+template <typename T, typename Compare = std::less<T>>
+class lazy_sorted_vector
+{
+public:
+
+	using vector_type = std::vector<T>;
+	using const_iterator = typename vector_type::const_iterator;
+	using const_reverse_iterator = typename vector_type::const_reverse_iterator;
+	using iterator = typename vector_type::iterator;
+	using reverse_iterator = typename vector_type::reverse_iterator;
+	using size_type = typename vector_type::size_type;
+
+	auto insert(T value) -> void
+	{
+		// Just push onto the end of the vector. It will
+		// be sorted into the correct place later.
+		vector_.push_back(value);
+
+		lazy_sort();
+	}
+
+	auto erase(T value) -> void
+	{
+		do_sort();
+
+		const auto pos { std::lower_bound(std::cbegin(vector_), std::cend(vector_), value, comparator_) };
+
+		assert (pos != std::cend(vector_));
+
+		// Swap to the end of the vector. It will be discarded later.
+		std::iter_swap(pos, std::cend(vector_)-1);
+
+		remove_count_++;
+
+		lazy_sort();
+	}
+
+	auto begin() -> iterator { do_sort(); return std::begin(vector_); }
+	auto end() -> iterator { do_sort(); return std::end(vector_); }
+	auto begin() const -> const_iterator { do_sort(); return std::begin(vector_); }
+	auto end() const -> const_iterator { do_sort(); return std::end(vector_); }
+	auto cbegin() const -> const_iterator { do_sort(); return std::cbegin(vector_); }
+	auto cend() const -> const_iterator { do_sort(); return std::cend(vector_); }
+	auto rbegin() -> reverse_iterator { do_sort(); return std::rbegin(vector_); }
+	auto rend() -> reverse_iterator { do_sort(); return std::rend(vector_); }
+	auto rbegin() const -> const_reverse_iterator { do_sort(); return std::rbegin(vector_); }
+	auto rend() const -> const_reverse_iterator { do_sort(); return std::rend(vector_); }
+	auto crbegin() const -> const_reverse_iterator { do_sort(); return std::crbegin(vector_); }
+	auto crend() const -> const_reverse_iterator { do_sort(); return std::crend(vector_); }
+	auto contains(T* core) const -> bool { do_sort(); return sorted::contains(vector_, core, comparator_); }
+	auto empty() const { return vector_.empty(); }
+	auto size() const { do_sort(); return vector_.size(); }
+	auto lazy_sort() { sorted_ = false; }
+
+private:
+
+	auto do_sort() const -> void
+	{
+		if (sorted_) return;
+
+		vector_.resize(vector_.size() - remove_count_);
+		std::sort(std::begin(vector_), std::end(vector_), comparator_);
+
+		sorted_ = true;
+		remove_count_ = 0;
+	}
+
+	Compare comparator_;
+	mutable size_type remove_count_{ 0 };
+	mutable vector_type vector_;
+	mutable bool sorted_{ true };
+};
+
 namespace checked {
 
 // Insert the value into the sorted vector.
 // Asserts that the value did not already exist.
 // Precondition: The vector is sorted.
 template <typename T>
-auto insert(std::vector<T>* vector, T value) -> std::pair<typename std::vector<T>::iterator, bool>
+auto insert(std::vector<T>* vector, T value) -> typename std::vector<T>::iterator
 {
 	const auto [pos, success] = unique::insert(vector, value);
 
 	assert (success);
+
+	return pos;
 }
 
 // Erase the value from the sorted vector.
@@ -125,7 +200,7 @@ struct vector : public std::vector<T>
 
 	auto contains(T value) -> bool
 	{
-		clog::vectors::sorted::contains(this, value);
+		clog::vectors::sorted::contains(*this, value);
 	}
 
 	auto insert(T value) -> void
