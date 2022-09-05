@@ -120,7 +120,7 @@ public:
 		assert (pos != std::cend(vector_));
 
 		// Swap to the end of the vector. It will be discarded later.
-		std::iter_swap(pos, std::cend(vector_)-1);
+		std::iter_swap(pos, std::end(vector_)-1);
 
 		remove_count_++;
 
