@@ -115,9 +115,9 @@ public:
 	{
 		do_sort();
 
-		const auto pos { std::lower_bound(std::cbegin(vector_), std::cend(vector_), value, comparator_) };
+		auto pos { std::lower_bound(std::begin(vector_), std::end(vector_), value, comparator_) };
 
-		assert (pos != std::cend(vector_));
+		assert (pos != std::end(vector_));
 
 		// Swap to the end of the vector. It will be discarded later.
 		std::iter_swap(pos, std::end(vector_)-1);
@@ -201,7 +201,7 @@ struct vector : public std::vector<T>
 
 	auto contains(T value) -> bool
 	{
-		clog::vectors::sorted::contains(*this, value);
+		return clog::vectors::sorted::contains(*this, value);
 	}
 
 	auto insert(T value) -> void
