@@ -134,7 +134,7 @@ public:
 	auto rend() const -> const_reverse_iterator { do_sort(); return std::rend(vector_); }
 	auto crbegin() const -> const_reverse_iterator { do_sort(); return std::crbegin(vector_); }
 	auto crend() const -> const_reverse_iterator { do_sort(); return std::crend(vector_); }
-	auto contains(T* core) const -> bool { do_sort(); return sorted::contains(vector_, core, comparator_); }
+	auto contains(T value) const -> bool { do_sort(); return sorted::contains(vector_, value, comparator_); }
 	auto empty() const { return vector_.empty(); }
 	auto size() const { do_sort(); return vector_.size(); }
 	auto lazy_sort() { sorted_ = false; }
