@@ -32,11 +32,7 @@ auto erase_all(std::vector<T>* vector, T value) -> typename std::vector<T>::size
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector)));
 
-	auto beg { std::lower_bound(std::cbegin(*vector), std::cend(*vector), value) };
-
-	if (beg == std::cend(*vector) || *beg != value) return 0;
-
-	auto end { std::upper_bound(beg, std::cend(*vector), value) };
+	const auto [beg, end] = std::equal_range(std::cbegin(*vector), std::cend(*vector), value);
 
 	const auto count { std::distance(beg, end) };
 
