@@ -4,6 +4,7 @@
 #include <cassert>
 #include <functional>
 #include <iterator>
+#include <unordered_map>
 #include <vector>
 
 #if defined(_DEBUG) && 1
@@ -87,12 +88,29 @@ public:
 		push(static_cast<idle_task_processor::index_t>(index), task);
 	}
 
+	template <typename ConvertibleToindex_tType>
+	auto push(ConvertibleToindex_tType index) -> void
+	{
+		const auto index_conv { static_cast<idle_task_processor::index_t>(index) };
+
+		assert (premapped_tasks_.find(index_conv) != std::cend(premapped_tasks_));
+
+		push(index, premapped_tasks_[index_conv]);
+	}
+
 	auto release() -> void;
+
+	template <typename ConvertibleToindex_tType>
+	auto& operator[](ConvertibleToindex_tType index)
+	{
+		return premapped_tasks_[static_cast<idle_task_processor::index_t>(index)];
+	}
 
 private:
 
 	idle_task_processor* processor_;
 	idle_task_processor::index_t slot_;
+	std::unordered_map<idle_task_processor::index_t, idle_task> premapped_tasks_;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
