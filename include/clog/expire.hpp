@@ -51,40 +51,6 @@ private:
 	clog::expiry_task expiry_task_{};
 };
 
-template <class T>
-class expiry_pointer_body : public expiry_cell_body
-{
-public:
-
-	expiry_pointer_body() = default;
-	expiry_pointer_body(expirable* object, size_t cell, T* raw_ptr);
-	expiry_pointer_body(expiry_pointer_body && rhs) noexcept;
-	expiry_pointer_body& operator=(expiry_pointer_body && rhs) noexcept;
-
-	auto get() { return raw_ptr_; }
-	auto get() const { return raw_ptr_; }
-
-	friend inline auto operator == (const expiry_pointer_body<T>& lhs, const expiry_pointer_body<T>& rhs)
-	{
-		return lhs.raw_ptr_ == rhs.raw_ptr_;
-	}
-
-	friend inline auto operator == (const expiry_pointer_body<T>& lhs, const T* rhs)
-	{
-		return lhs.raw_ptr_ == rhs;
-	}
-
-private:
-	
-	auto expire() -> expiry_task override;
-	auto on_expired(clog::expiry_task expiry_task) -> void;
-
-	T* raw_ptr_{};
-	clog::expiry_task expiry_task_{};
-
-	friend struct std::hash<expiry_pointer_body<T>>;
-};
-
 } // detail
 
 class expiry_observer
@@ -99,54 +65,6 @@ private:
 	std::unique_ptr<detail::expiry_observer_body> body_;
 };
 
-template <class T>
-class expiry_pointer
-{
-public:
-
-	expiry_pointer() = default;
-	expiry_pointer(T* raw_ptr);
-	expiry_pointer(const expiry_pointer<T>& rhs);
-	expiry_pointer(std::unique_ptr<detail::expiry_pointer_body<T>> body);
-
-	operator T*();
-
-	auto clone() const -> expiry_pointer<T>;
-	auto get() const -> T*;
-	auto& operator*() const { return *get(); }
-	//auto& operator*() { return *get(); }
-	auto operator->() const { return get(); }
-	//auto operator->() { return get(); }
-	auto is_expired() const -> bool { return !get(); }
-	auto on_expired(clog::expiry_task expiry_task) -> void;
-
-	friend inline auto operator == (const expiry_pointer<T>& lhs, const expiry_pointer<T>& rhs)
-	{
-		return *lhs.body_ == *rhs.body_;
-	}
-
-	friend inline auto operator == (const expiry_pointer<T>& lhs, const T* rhs)
-	{
-		return *lhs.body_ == rhs;
-	}
-
-	friend inline auto operator != (const expiry_pointer<T>& lhs, const T* rhs)
-	{
-		return !(lhs == rhs);
-	}
-
-	friend inline auto operator < (const expiry_pointer<T>& lhs, const expiry_pointer<T>& rhs)
-	{
-		return *lhs.body_ < *rhs.body_;
-	}
-
-private:
-
-	std::unique_ptr<detail::expiry_pointer_body<T>> body_;
-
-	friend struct std::hash<clog::expiry_pointer<T>>;
-};
-
 class expirable
 {
 public:
@@ -156,13 +74,8 @@ public:
 	auto expire() -> void;
 	auto is_expired() const -> bool;
 
-	template <class T>
-	auto make_expiry_pointer() -> expiry_pointer<T>;
 	auto make_expiry_observer(clog::expiry_task expiry_task) -> expiry_observer;
 	auto observe_expiry(clog::expiry_task expiry_task) -> void;
-
-	template <class T>
-	auto make_expiry_pointer_body() -> std::unique_ptr<detail::expiry_pointer_body<T>>;
 
 private:
 
@@ -261,56 +174,6 @@ inline auto expiry_observer_body::expire() -> expiry_task
 	return expiry_task_;
 }
 
-///////////////////////////////////////
-/// expiry_pointer_body
-///////////////////////////////////////
-template <class T>
-expiry_pointer_body<T>::expiry_pointer_body(expirable* object, size_t cell, T* raw_ptr)
-	: expiry_cell_body{ object, cell }
-	, raw_ptr_{ raw_ptr }
-{
-}
-
-template <class T>
-expiry_pointer_body<T>::expiry_pointer_body(expiry_pointer_body && rhs) noexcept
-	: expiry_cell_body{ std::move(rhs) }
-	, raw_ptr_{ rhs.raw_ptr_ }
-	, expiry_task_{ rhs.expiry_task_ }
-{
-	rhs.raw_ptr_ = {};
-	rhs.expiry_task_ = {};
-}
-
-template <class T>
-expiry_pointer_body<T>& expiry_pointer_body<T>::operator=(expiry_pointer_body && rhs) noexcept
-{
-	expiry_cell_body::operator=(std::move(rhs));
-
-	raw_ptr_ = rhs.raw_ptr_;
-	expiry_task_ = rhs.expiry_task_;
-
-	rhs.raw_ptr_ = {};
-	rhs.expiry_task_ = {};
-
-	return *this;
-}
-
-template <class T>
-auto expiry_pointer_body<T>::expire() -> expiry_task
-{
-	expiry_cell_body::release();
-
-	raw_ptr_ = {};
-
-	return expiry_task_;
-}
-
-template <class T>
-auto expiry_pointer_body<T>::on_expired(clog::expiry_task expiry_task) -> void
-{
-	expiry_task_ = expiry_task;
-}
-
 } // detail
 
 ///////////////////////////////////////
@@ -319,57 +182,6 @@ auto expiry_pointer_body<T>::on_expired(clog::expiry_task expiry_task) -> void
 inline expiry_observer::expiry_observer(std::unique_ptr<detail::expiry_observer_body> body)
 	: body_{ std::move(body) }
 {
-}
-
-///////////////////////////////////////
-/// expiry_pointer
-///////////////////////////////////////
-template <class T>
-expiry_pointer<T>::expiry_pointer(std::unique_ptr<detail::expiry_pointer_body<T>> body)
-	: body_{ std::move(body) }
-{
-}
-
-template <class T>
-expiry_pointer<T>::expiry_pointer(T* raw_ptr)
-	: body_{ raw_ptr->make_expiry_pointer_body<T>() }
-{
-}
-
-template <class T>
-expiry_pointer<T>::expiry_pointer(const expiry_pointer<T>& rhs)
-	: body_{ rhs.get()->make_expiry_pointer_body<T>() }
-{
-}
-
-template <class T>
-expiry_pointer<T>::operator T*()
-{
-	return get();
-}
-
-template <class T>
-auto expiry_pointer<T>::clone() const -> expiry_pointer<T>
-{
-	return body_.get()->get()->make_expiry_pointer<T>();
-}
-
-//template <class T>
-//auto expiry_pointer<T>::get() -> T*
-//{
-//	return body_.get()->get();
-//}
-
-template <class T>
-auto expiry_pointer<T>::get() const -> T*
-{
-	return body_.get()->get();
-}
-
-template <class T>
-auto expiry_pointer<T>::on_expired(clog::expiry_task expiry_task) -> void
-{
-	body_->get()->on_expired(expiry_task);
 }
 
 ///////////////////////////////////////
@@ -411,24 +223,6 @@ inline auto expirable::expire() -> void
 inline auto expirable::is_expired() const -> bool
 {
 	return expired_;
-}
-
-template <class T>
-auto expirable::make_expiry_pointer() -> expiry_pointer<T>
-{
-	return { make_expiry_pointer_body() };
-}
-
-template <class T>
-auto expirable::make_expiry_pointer_body() -> std::unique_ptr<detail::expiry_pointer_body<T>>
-{
-	const auto cell { cells_.get_empty_cell() };
-
-	auto out { std::make_unique<detail::expiry_pointer_body<T>>(this, cell, static_cast<T*>(this)) };
-
-	cells_.cells[cell] = out.get();
-
-	return out;
 }
 
 inline auto expirable::make_expiry_observer(clog::expiry_task expiry_task) -> expiry_observer
@@ -486,25 +280,3 @@ inline auto expirable::cell_array::release(size_t cell) -> void
 }
 
 } // clog
-
-namespace std {
-
-template <typename T>
-struct hash<clog::detail::expiry_pointer_body<T>>
-{
-    auto operator()(const clog::detail::expiry_pointer_body<T>& ptr) const -> std::size_t
-    {
-        return hash<T*>()(ptr.raw_ptr_);
-    }
-};
-
-template <typename T>
-struct hash<clog::expiry_pointer<T>>
-{
-    auto operator()(const clog::expiry_pointer<T>& ptr) const -> std::size_t
-    {
-        return hash<clog::detail::expiry_pointer_body<T>>()(*ptr.body_);
-    }
-};
-
-} // std
