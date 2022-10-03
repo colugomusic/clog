@@ -112,6 +112,12 @@ public:
 		push(index);
 	}
 
+	template <typename ConvertibleToIndex>
+	auto make_callable(ConvertibleToIndex index)
+	{
+		return [this, index]() { push(index); };
+	}
+
 private:
 
 	idle_task_processor* processor_;
