@@ -155,6 +155,40 @@ struct object
     // pusher sees '500' it will allocate memory for that many indexed tasks.
   }
 };
+```
+```c++
+// There is some syntax sugar that lets you write things like this instead
+struct alternative
+{
+  enum class task
+  {
+    some_task,
+    another_task,
+  };
+  
+  clog::idle_task_pusher tasks { processor.make_pusher() };
+  
+  alternative()
+  {
+    // Pre-define the tasks for each id
+    tasks[task::some_task] = [=]()
+    {
+      // Do something
+    }
+    
+    tasks[task::another_task] = [=]()
+    {
+      // Do something else
+    }
+  }
+  
+  auto foobar() -> void
+  {
+    // Push the tasks
+    tasks << task::some_task;
+    tasks << task::another_task;
+  }
+};
 
 ```
 
