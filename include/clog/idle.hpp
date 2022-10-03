@@ -106,6 +106,12 @@ public:
 		return premapped_tasks_[static_cast<idle_task_processor::index_t>(index)];
 	}
 
+	template <typename ConvertibleToIndex>
+	auto operator<<(ConvertibleToIndex index) -> void
+	{
+		push(index);
+	}
+
 private:
 
 	idle_task_processor* processor_;
