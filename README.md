@@ -23,8 +23,6 @@ thing my_thing;
 // expired state from now on, i.e. it should be considered to be
 // dead or "as good as deleted" by the program logic.
 //
-// A `clog::expiry_pointer` is a safe reference to a `clog::expirable`.
-//
 // The other mechanisms below provide ways to register tasks to
 // be run at the point of expiry. The motivation behind that is to
 // allow objects to safely disconnect themselves from other objects
@@ -87,22 +85,6 @@ struct observer
     // This connection stays alive until `thing_expiry_` goes out
     // of scope, or `my_thing` is deleted.
     thing_expiry_ = my_thing->make_expiry_observer(on_expired_2);
-    
-    ...
-    
-    //
-    // Creating a smart pointer to `my_thing` which knows when it
-    // has been expired or deleted.
-    //
-    auto expiry_pointer = my_thing->make_expiry_pointer<thing>();
-    
-    expiry_pointer.is_expired(); // Returns true if `my_thing` is expired
-    expiry_pointer.get(); // Returns null if `my_thing` is expired
-    
-    // You can optionally add a single task to run when `my_thing`
-    // is expired. The connection is removed when `expiry_pointer``
-    // goes out of scope.
-    expiry_pointer.on_expired([](){ ... });
   }
   
   clog::expiry_observer thing_expiry_;
