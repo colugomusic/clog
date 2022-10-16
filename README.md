@@ -1,7 +1,13 @@
 # clog
 
-- [idle.hpp](#idlehpp)
-- [vectors.hpp](#vectorshpp)
+spaghetti code spider web object oriented hell scape. all software is garbage and so are you
+
+- [expire.hpp](include/clog/expire.hpp) - dying object notifications, not documented
+- [idle.hpp](#idlehpp) - object task queues
+- [property.hpp](include/clog/property.hpp) - set/get property library, not documented
+- [rcv.hpp](include/clog/rcv.hpp) - reusable cell vector, some documentation in header
+- [signal.hpp](include/clog/signal.hpp) - single-threaded signal/slot library, not documented
+- [vectors.hpp](#vectorshpp) - operations for manipulating sorted vectors
 
 ## idle.hpp
 [include/clog/idle.hpp](include/clog/idle.hpp)
