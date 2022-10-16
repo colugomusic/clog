@@ -93,7 +93,9 @@ public:
 	template <typename Visitor>
 	auto visit(Visitor visitor) -> void
 	{
-		for (auto index : current_)
+		const auto current { current_ };
+
+		for (auto index : current)
 		{
 			visitor(cells_[index]);
 		}
