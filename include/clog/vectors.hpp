@@ -43,7 +43,7 @@ auto find(Begin begin, End end, T value, Compare compare = Compare{}) -> typenam
 
 	const auto pos { std::lower_bound(begin, end, value, compare) };
 
-	if (*pos != value) return end;
+	if (!(*pos == value)) return end;
 
 	return pos;
 }
