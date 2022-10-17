@@ -47,10 +47,12 @@ public:
 	get(T value) : value_ { value } {}
 	get(get<T> && rhs) = default;
 
+	operator T() const { return value_; }
+	operator const T&() const { return value_; }
 	bool operator==(const T& value) const { return value_ == value; }
 	auto notify() -> void { signal_(value_); }
-	auto& get() const { return value_; }
-	auto& operator*() const { return get(); }
+	auto& get_value() const { return value_; }
+	auto& operator*() const { return value_; }
 	auto operator->() const { return &value_; }
 
 	template <typename Slot>
@@ -82,7 +84,7 @@ private:
 	friend class setter<T>;
 
 	T value_;
-	signal<T> signal_;
+	signal<const T&> signal_;
 };
 
 template <class T>
@@ -153,7 +155,7 @@ public:
 	auto operator>>(Slot && slot) { return observe(std::forward<Slot>(slot)); }
 
 	auto getter() const { return fn_; }
-	auto get() const { return fn_(); }
+	auto get_value() const { return fn_(); }
 	auto operator()() const { return get(); }
 	auto operator*() const { return get(); }
 
