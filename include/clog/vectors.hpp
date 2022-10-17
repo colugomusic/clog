@@ -10,8 +10,8 @@ namespace sorted {
 
 // Check if the sorted vector contains the value.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare>
-auto contains(const std::vector<T>& vector, T value, Compare compare = std::less<T>{}) -> bool
+template <typename T, typename Compare = std::less<T>>
+auto contains(const std::vector<T>& vector, T value, Compare compare = Compare{}) -> bool
 {
 	assert (std::is_sorted(std::cbegin(vector), std::cend(vector), compare));
 
@@ -20,8 +20,8 @@ auto contains(const std::vector<T>& vector, T value, Compare compare = std::less
 
 // Erase all instances of the value from the sorted vector.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare>
-auto erase_all(std::vector<T>* vector, T value, Compare compare = std::less<T>{}) -> typename std::vector<T>::size_type
+template <typename T, typename Compare = std::less<T>>
+auto erase_all(std::vector<T>* vector, T value, Compare compare = Compare{}) -> typename std::vector<T>::size_type
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
@@ -36,8 +36,8 @@ auto erase_all(std::vector<T>* vector, T value, Compare compare = std::less<T>{}
 
 // Return an iterator pointing to the first element equal to value, or end if not found.
 // Precondition: The range is sorted.
-template <typename Begin, typename End, typename T, typename Compare>
-auto find(Begin begin, End end, T value, Compare compare = std::less<T>{}) -> typename std::vector<T>::const_iterator
+template <typename Begin, typename End, typename T, typename Compare = std::less<T>>
+auto find(Begin begin, End end, T value, Compare compare = Compare{}) -> typename std::vector<T>::const_iterator
 {
 	assert (std::is_sorted(begin, end, compare));
 
@@ -47,11 +47,17 @@ auto find(Begin begin, End end, T value, Compare compare = std::less<T>{}) -> ty
 
 	return pos;
 }
+template <typename Range, typename T, typename Compare = std::less<T>>
+auto find(Range range, T value, Compare compare = Compare{}) -> typename std::vector<T>::const_iterator
+{
+	return find(std::cbegin(range), std::cend(range), value, compare);
+}
+
 
 // Insert the value into the sorted vector.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare>
-auto insert(std::vector<T>* vector, T value, Compare compare = std::less<T>{}) -> std::pair<typename std::vector<T>::iterator, bool>
+template <typename T, typename Compare = std::less<T>>
+auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
@@ -76,8 +82,8 @@ namespace unique {
 // Insert the value into the sorted vector.
 // Fails if the value already exists.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare>
-auto insert(std::vector<T>* vector, T value, Compare compare = std::less<T>{}) -> std::pair<typename std::vector<T>::iterator, bool>
+template <typename T, typename Compare = std::less<T>>
+auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
@@ -98,8 +104,8 @@ namespace checked {
 // Insert the value into the sorted vector.
 // Asserts that the value did not already exist.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare>
-auto insert(std::vector<T>* vector, T value, Compare compare = std::less<T>{}) -> typename std::vector<T>::iterator
+template <typename T, typename Compare = std::less<T>>
+auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> typename std::vector<T>::iterator
 {
 	const auto [pos, success] = unique::insert(vector, value, compare);
 
@@ -111,8 +117,8 @@ auto insert(std::vector<T>* vector, T value, Compare compare = std::less<T>{}) -
 // Erase the value from the sorted vector.
 // Asserts that exactly one element was removed.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare>
-auto erase(std::vector<T>* vector, T value, Compare compare = std::less<T>{}) -> void
+template <typename T, typename Compare = std::less<T>>
+auto erase(std::vector<T>* vector, T value, Compare compare = Compare{}) -> void
 {
 	const auto result = sorted::erase_all(vector, value, compare);
 
