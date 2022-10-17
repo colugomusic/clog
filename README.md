@@ -118,16 +118,22 @@ Operations for manipulating sorted vectors.
 See the header for documentation.
 
 ### namespace vectors::sorted::
-`contains(const std::vector<T>& vector, T value, Compare compare = Compare{})` ` -> bool`<br/>
-`erase_all(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> typename std::vector<T>::size_type`<br/>
-`find(Begin begin, End end, T value, Compare compare = Compare{})` ` -> typename std::vector<T>::const_iterator`<br/>
-`find(Range range, T value, Compare compare = Compare{})` ` -> typename std::vector<T>::const_iterator`<br/>
-`insert(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> std::pair<typename std::vector<T>::iterator, bool>`<br/>
-`insert(std::vector<T>* vector, Begin begin, End end)` ` -> void`
+```c++
+auto contains(const std::vector<T>& vector, T value, Compare compare = Compare{}) -> bool;
+auto erase_all(std::vector<T>* vector, T value, Compare compare = Compare{}) -> typename std::vector<T>::size_type;
+auto find(Begin begin, End end, T value, Compare compare = Compare{}) -> typename std::vector<T>::const_iterator;
+auto find(Range range, T value, Compare compare = Compare{}) -> typename std::vector<T>::const_iterator;
+auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>;
+auto insert(std::vector<T>* vector, Begin begin, End end) -> void;
+```
 
 ### namespace vectors::sorted::unique::
-`insert(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> std::pair<typename std::vector<T>::iterator, bool>`
+```c++
+auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>;
+```
 
 ### namespace vectors::sorted::unique::checked::
-`insert(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> typename std::vector<T>::iterator`<br/>
-`erase(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> void`
+```c++
+auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> typename std::vector<T>::iterator;
+auto erase(std::vector<T>* vector, T value, Compare compare = Compare{}) -> void;
+```
