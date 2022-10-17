@@ -115,62 +115,19 @@ struct alternative
 
 Operations for manipulating sorted vectors.
 
----
-`vectors::sorted::`<br/>
-`contains(const std::vector<T>& vector, T value)` ` -> bool`
+See the header for documentation.
 
-Precondition: The vector must be sorted.
+### namespace vectors::sorted::
+`contains(const std::vector<T>& vector, T value, Compare compare = Compare{})` ` -> bool`<br/>
+`erase_all(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> typename std::vector<T>::size_type`<br/>
+`find(Begin begin, End end, T value, Compare compare = Compare{})` ` -> typename std::vector<T>::const_iterator`<br/>
+`find(Range range, T value, Compare compare = Compare{})` ` -> typename std::vector<T>::const_iterator`<br/>
+`insert(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> std::pair<typename std::vector<T>::iterator, bool>`<br/>
+`insert(std::vector<T>* vector, Begin begin, End end)` ` -> void`
 
-Returns: true if the value is in the vector.
+### namespace vectors::sorted::unique::
+`insert(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> std::pair<typename std::vector<T>::iterator, bool>`
 
----
-`vectors::sorted::`<br/>
-`insert(std::vector<T>* vector, T value)` ` -> std::pair<typename std::vector<T>::iterator, bool>`
-
-Precondition: The vector must be sorted.
-
-Inserts the value into the sorted vector.
-
-Returns: `std::pair<(iterator to inserted item), (true if insertion was successful)>`
-
----
-`vectors::sorted::`<br/>
-`erase_all(std::vector<T>* vector, T value)` ` -> typename std::vector<T>::size_type`
-
-Precondition: The vector must be sorted.
-
-Removes all instances of the value from the sorted vector.
-
-Returns: the number of items removed.
-
----
-`vectors::sorted::unique::`<br/>
-`insert(std::vector<T>* vector, T value)` ` -> std::pair<typename std::vector<T>::iterator, bool>`
-
-Precondition: The vector must be sorted.
-
-Inserts the value into the sorted vector.
-
-Fails if the value is already in the vector.
-
-Returns: `std::pair<(iterator to inserted item), (true if insertion was successful)>`
-
----
-`vectors::sorted::unique::checked::`<br/>
-`insert(std::vector<T>* vector, T value)` ` -> std::pair<typename std::vector<T>::iterator, bool>`
-
-Precondition: The vector must be sorted.
-
-Asserts that the value does not already exist in the vector.
-
-Inserts the value into the sorted vector.
-
----
-`vectors::sorted::unique::checked::`<br/>
-`erase(std::vector<T>* vector, T value)` ` -> void`
-
-Precondition: The vector must be sorted.
-
-Removes the value from the sorted vector.
-
-Asserts that exactly one element was removed.
+### namespace vectors::sorted::unique::checked::
+`insert(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> typename std::vector<T>::iterator`<br/>
+`erase(std::vector<T>* vector, T value, Compare compare = Compare{})` ` -> void`
