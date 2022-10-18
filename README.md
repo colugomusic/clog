@@ -7,7 +7,7 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 - [property.hpp](include/clog/property.hpp) - set/get property library, not documented
 - [rcv.hpp](include/clog/rcv.hpp) - reusable cell vector, some documentation in header
 - [signal.hpp](include/clog/signal.hpp) - single-threaded signal/slot library, not documented
-- [vectors.hpp](#vectorshpp) - operations for manipulating sorted vectors
+- [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
 
 ## idle.hpp
 [include/clog/idle.hpp](include/clog/idle.hpp)
@@ -108,32 +108,4 @@ struct alternative
   }
 };
 
-```
-
-## vectors.hpp
-[include/clog/vectors.hpp](include/clog/vectors.hpp)
-
-Operations for manipulating sorted vectors.
-
-See the header for documentation.
-
-### namespace vectors::sorted::
-```c++
-auto contains(const std::vector<T>& vector, T value, Compare compare = Compare{}) -> bool;
-auto erase_all(std::vector<T>* vector, T value, Compare compare = Compare{}) -> typename std::vector<T>::size_type;
-auto find(Begin begin, End end, T value, Compare compare = Compare{}) -> typename std::vector<T>::const_iterator;
-auto find(Range range, T value, Compare compare = Compare{}) -> typename std::vector<T>::const_iterator;
-auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>;
-auto insert(std::vector<T>* vector, Begin begin, End end) -> void;
-```
-
-### namespace vectors::sorted::unique::
-```c++
-auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>;
-```
-
-### namespace vectors::sorted::unique::checked::
-```c++
-auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> typename std::vector<T>::iterator;
-auto erase(std::vector<T>* vector, T value, Compare compare = Compare{}) -> void;
 ```
