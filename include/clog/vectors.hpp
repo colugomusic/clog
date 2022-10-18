@@ -49,10 +49,16 @@ auto find(Begin begin, End end, T value, Compare compare = Compare{})
 	return pos;
 }
 
-template <typename Range, typename T, typename Compare = std::less<T>>
-auto find(Range range, T value, Compare compare = Compare{})
+template <typename T, typename Compare = std::less<T>>
+auto find(std::vector<T>& vector, T value, Compare compare = Compare{})
 {
-	return find(std::begin(range), std::end(range), value, compare);
+	return find(std::begin(vector), std::end(vector), value, compare);
+}
+
+template <typename T, typename Compare = std::less<T>>
+auto find(const std::vector<T>& vector, T value, Compare compare = Compare{})
+{
+	return find(std::cbegin(vector), std::cend(vector), value, compare);
 }
 
 // Insert the value into the sorted vector.
