@@ -2,6 +2,10 @@
 
 spaghetti code spider web object oriented hell scape. all software is garbage and so are you
 
+## Requirements
+- c++17
+
+## Libraries
 - [expire.hpp](include/clog/expire.hpp) - dying object notifications, not documented
 - [idle.hpp](#idlehpp) - object task queues
 - [property.hpp](include/clog/property.hpp) - set/get property library, not documented
