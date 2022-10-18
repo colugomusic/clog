@@ -36,23 +36,28 @@ auto erase_all(std::vector<T>* vector, T value, Compare compare = Compare{}) -> 
 
 // Return an iterator pointing to the first element equal to value, or end if not found.
 // Precondition: The range is sorted.
-template <typename Begin, typename End, typename T, typename Compare = std::less<T>>
-auto find(Begin begin, End end, T value, Compare compare = Compare{}) -> typename std::vector<T>::const_iterator
+template <typename Iterator, typename T, typename Compare = std::less<T>>
+auto find(Iterator begin, Iterator end, T value, Compare compare = Compare{}) -> Iterator
 {
 	assert (std::is_sorted(begin, end, compare));
 
 	const auto pos { std::lower_bound(begin, end, value, compare) };
 
-	if (!(*pos == value)) return end;
+	if (pos == end) return end;
+	if (compare(value, *pos)) return end;
 
 	return pos;
 }
 template <typename Range, typename T, typename Compare = std::less<T>>
-auto find(Range range, T value, Compare compare = Compare{}) -> typename std::vector<T>::const_iterator
+auto find(Range range, T value, Compare compare = Compare{}) -> decltype(std::begin(range))
+{
+	return find(std::begin(range), std::end(range), value, compare);
+}
+template <typename Range, typename T, typename Compare = std::less<T>>
+auto cfind(Range range, T value, Compare compare = Compare{}) -> decltype(std::cbegin(range))
 {
 	return find(std::cbegin(range), std::cend(range), value, compare);
 }
-
 
 // Insert the value into the sorted vector.
 // Precondition: The vector is sorted.
@@ -97,6 +102,32 @@ auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std
 	pos = vector->insert(pos, value);
 
 	return { pos, true };
+}
+
+// Insert the value into the sorted vector.
+// If a value already exists that compares equal to it,
+// it is overwritten.
+// Precondition: The vector is sorted.
+template <typename T, typename Compare = std::less<T>>
+auto overwrite(std::vector<T>* vector, T value, Compare compare = Compare{}) -> typename std::vector<T>::iterator
+{
+	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+
+	auto pos { find(*vector, value, compare) };
+
+	if (pos != std::cend(*vector))
+	{
+		*pos = value;
+		return pos;
+	}
+
+	bool success;
+
+	std::tie(pos, success) = insert(vector, value, compare);
+
+	assert (success);
+
+	return pos;
 }
 
 namespace checked {
