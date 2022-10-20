@@ -137,6 +137,16 @@ public:
 	proxy_get() = default;
 	proxy_get(fn_t fn) : fn_ { fn } {}
 
+	operator fn_t() const
+	{
+		return fn_;
+	}
+
+	operator T() const
+	{
+		return get_value();
+	}
+
 	auto operator=(fn_t fn) -> proxy_get&
 	{
 		fn_ = fn;
@@ -156,8 +166,8 @@ public:
 
 	auto getter() const { return fn_; }
 	auto get_value() const { return fn_(); }
-	auto operator()() const { return get(); }
-	auto operator*() const { return get(); }
+	auto operator()() const { return fn_(); }
+	auto operator*() const { return fn_(); }
 
 private:
 
