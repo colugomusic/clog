@@ -28,6 +28,7 @@ public:
 		if (dirty_)
 		{
 			value_ = fn_();
+			dirty_ = false;
 		}
 
 		return value_;
