@@ -85,14 +85,14 @@ public:
 			ResizeStrategy::resize(&cells_, index + 1);
 		}
 
-		vectors::sorted::unique::checked::insert(&current_, index);
+		current_.insert(index);
 
 		return index;
 	}
 
 	auto release(handle_t index) -> void
 	{
-		vectors::sorted::unique::checked::erase(&current_, index);
+		current_.erase(index);
 		
 		if (index < next_)
 		{
@@ -131,7 +131,7 @@ private:
 		while (true)
 		{
 			if (next_ >= cells_.size()) break;
-			if (!vectors::sorted::contains(current_, next_)) break;
+			if (!current_.contains(next_)) break;
 
 			next_++;
 		}
