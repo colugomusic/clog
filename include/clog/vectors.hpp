@@ -11,7 +11,7 @@ namespace sorted {
 // Check if the sorted vector contains the value.
 // Precondition: The vector is sorted.
 template <typename T, typename Compare = std::less<T>>
-auto contains(const std::vector<T>& vector, T value, Compare compare = Compare{}) -> bool
+auto contains(const std::vector<T>& vector, const T& value, Compare compare = Compare{}) -> bool
 {
 	assert (std::is_sorted(std::cbegin(vector), std::cend(vector), compare));
 
@@ -21,7 +21,7 @@ auto contains(const std::vector<T>& vector, T value, Compare compare = Compare{}
 // Erase all instances of the value from the sorted vector.
 // Precondition: The vector is sorted.
 template <typename T, typename Compare = std::less<T>>
-auto erase_all(std::vector<T>* vector, T value, Compare compare = Compare{})
+auto erase_all(std::vector<T>* vector, const T& value, Compare compare = Compare{})
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
@@ -37,7 +37,7 @@ auto erase_all(std::vector<T>* vector, T value, Compare compare = Compare{})
 // Return an iterator pointing to the first element equal to value, or end if not found.
 // Precondition: The range is sorted.
 template <typename Begin, typename End, typename T, typename Compare = std::less<T>>
-auto find(Begin begin, End end, T value, Compare compare = Compare{})
+auto find(Begin begin, End end, const T& value, Compare compare = Compare{})
 {
 	assert (std::is_sorted(begin, end, compare));
 
@@ -50,13 +50,13 @@ auto find(Begin begin, End end, T value, Compare compare = Compare{})
 }
 
 template <typename T, typename Compare = std::less<T>>
-auto find(std::vector<T>& vector, T value, Compare compare = Compare{})
+auto find(std::vector<T>& vector, const T& value, Compare compare = Compare{})
 {
 	return find(std::begin(vector), std::end(vector), value, compare);
 }
 
 template <typename T, typename Compare = std::less<T>>
-auto find(const std::vector<T>& vector, T value, Compare compare = Compare{})
+auto find(const std::vector<T>& vector, const T& value, Compare compare = Compare{})
 {
 	return find(std::cbegin(vector), std::cend(vector), value, compare);
 }
@@ -68,7 +68,7 @@ auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
-	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), value, compare) };
+	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), std::move(value), compare) };
 
 	pos = vector->insert(pos, value);
 
@@ -101,7 +101,7 @@ auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std
 		return { pos, false };
 	}
 
-	pos = vector->insert(pos, value);
+	pos = vector->insert(pos, std::move(value));
 
 	return { pos, true };
 }
@@ -125,7 +125,7 @@ auto overwrite(std::vector<T>* vector, T value, Compare compare = Compare{})
 
 	bool success;
 
-	std::tie(pos, success) = insert(vector, value, compare);
+	std::tie(pos, success) = insert(vector, std::move(value), compare);
 
 	assert (success);
 
@@ -140,7 +140,7 @@ namespace checked {
 template <typename T, typename Compare = std::less<T>>
 auto insert(std::vector<T>* vector, T value, Compare compare = Compare{})
 {
-	const auto [pos, success] = unique::insert(vector, value, compare);
+	const auto [pos, success] = unique::insert(vector, std::move(value), compare);
 
 	assert (success);
 
@@ -151,7 +151,7 @@ auto insert(std::vector<T>* vector, T value, Compare compare = Compare{})
 // Asserts that exactly one element was removed.
 // Precondition: The vector is sorted.
 template <typename T, typename Compare = std::less<T>>
-auto erase(std::vector<T>* vector, T value, Compare compare = Compare{}) -> void
+auto erase(std::vector<T>* vector, const T& value, Compare compare = Compare{}) -> void
 {
 	const auto result = sorted::erase_all(vector, value, compare);
 
@@ -168,17 +168,17 @@ struct vector : public std::vector<T>
 	{
 	}
 
-	auto contains(T value) -> bool
+	auto contains(const T& value) -> bool
 	{
 		return clog::vectors::sorted::contains(*this, value, Compare{});
 	}
 
 	auto insert(T value) -> void
 	{
-		checked::insert(this, value, Compare{});
+		checked::insert(this, std::move(value), Compare{});
 	}
 
-	auto erase(T value) -> void
+	auto erase(const T& value) -> void
 	{
 		checked::erase(this, value, Compare{});
 	}
