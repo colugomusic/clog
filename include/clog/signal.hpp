@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <memory>
 #include "rcv.hpp"
 
 namespace clog {
@@ -12,7 +13,6 @@ struct signal_base;
 struct cn_body
 {
 	signal_base* signal{};
-	rcv_handle handle;
 };
 
 } // detail
@@ -22,7 +22,7 @@ class cn
 public:
 
 	cn() = default;
-	cn(detail::cn_body* body);
+	cn(detail::signal_base* signal, rcv_handle handle);
 	cn(cn && rhs) noexcept;
 	~cn();
 
@@ -30,14 +30,16 @@ public:
 
 private:
 
-	detail::cn_body* body_;
+	detail::cn_body body_{};
+	rcv_handle handle_{};
 };
 
 namespace detail {
 
 struct signal_base
 {
-	virtual auto disconnect(cn_body* cn) -> void = 0;
+	virtual auto disconnect(rcv_handle handle) -> void = 0;
+	virtual auto update(rcv_handle handle, detail::cn_body* body) -> void = 0;
 };
 
 } // detail
@@ -53,7 +55,7 @@ public:
 	{
 		cns_.visit([](cn_record& record)
 		{
-			record.body.signal = {};
+			record.body->signal = {};
 		});
 	}
 
@@ -64,11 +66,9 @@ public:
 
 		auto record { cns_.get(handle) };
 
-		record->body.signal = this;
-		record->body.handle = handle;
 		record->cb = std::move(slot);
 
-		return { &record->body };
+		return { this, handle };
 	}
 
 	template <typename Slot>
@@ -77,9 +77,9 @@ public:
 		return connect(std::forward<Slot>(slot));
 	}
 
-	auto disconnect(detail::cn_body* cn) -> void override
+	auto disconnect(rcv_handle handle) -> void override
 	{
-		cns_.release(cn->handle);
+		cns_.release(handle);
 	}
 
 	auto operator()(Args... args) -> void
@@ -92,9 +92,14 @@ public:
 
 private:
 
+	auto update(rcv_handle handle, detail::cn_body* body) -> void override
+	{
+		cns_.get(handle)->body = body;
+	}
+
 	struct cn_record
 	{
-		detail::cn_body body;
+		detail::cn_body* body{};
 		cb_t cb;
 	};
 
@@ -115,30 +120,37 @@ private:
 	std::vector<cn> connections_;
 };
 
-inline cn::cn(detail::cn_body* body)
-	: body_{body}
+inline cn::cn(detail::signal_base* signal, rcv_handle handle)
+	: handle_{handle}
 {
+	body_.signal = signal;
+
+	signal->update(handle_, &body_);
 }
 
 inline cn::cn(cn && rhs) noexcept
 	: body_{rhs.body_}
+	, handle_{rhs.handle_}
 {
 	rhs.body_ = {};
+	if (!body_.signal) return;
+	body_.signal->update(handle_, &body_);
 }
 
 inline auto cn::operator=(cn && rhs) noexcept -> cn&
 {
 	body_ = rhs.body_;
+	handle_ = rhs.handle_;
 	rhs.body_ = {};
+	if (!body_.signal) return *this;
+	body_.signal->update(handle_, &body_);
 	return *this;
 }
 
 inline cn::~cn()
 {
-	if (!body_) return;
-	if (!body_->signal) return;
-
-	body_->signal->disconnect(body_);
+	if (!body_.signal) return;
+	body_.signal->disconnect(handle_);
 }
 
 } // clog
