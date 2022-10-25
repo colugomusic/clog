@@ -23,7 +23,15 @@ public:
 		return *this;
 	}
 
-	auto get() const -> T
+	auto operator=(T value) -> cached&
+	{
+		value_ = value;
+		dirty_ = false;
+
+		return *this;
+	}
+
+	auto get() const -> const T&
 	{
 		if (dirty_)
 		{
@@ -46,10 +54,15 @@ public:
 
 	auto operator->() const
 	{
-		return get();
+		return &get();
 	}
 
 	operator T() const
+	{
+		return get();
+	}
+
+	operator const T&() const
 	{
 		return get();
 	}
