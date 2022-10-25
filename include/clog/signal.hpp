@@ -5,14 +5,24 @@
 
 namespace clog {
 
-class signal_base;
+namespace detail {
+
+struct signal_base;
+
+struct cn_body
+{
+	signal_base* signal{};
+	rcv_handle handle;
+};
+
+} // detail
 
 class cn
 {
 public:
 
-	cn();
-	cn(signal_base* s, rcv_handle handle);
+	cn() = default;
+	cn(detail::cn_body* body);
 	cn(cn && rhs) noexcept;
 	~cn();
 
@@ -20,32 +30,45 @@ public:
 
 private:
 
-	signal_base* s_{};
-	rcv_handle handle_;
+	detail::cn_body* body_;
 };
 
-class signal_base
+namespace detail {
+
+struct signal_base
 {
-public:
-
-	virtual auto disconnect(rcv_handle handle) -> void = 0;
+	virtual auto disconnect(cn_body* cn) -> void = 0;
 };
+
+} // detail
 
 template <typename ... Args>
-class signal : public signal_base
+class signal : public detail::signal_base
 {
 	using cb_t = std::function<void(Args...)>;
 
 public:
 
+	~signal()
+	{
+		cns_.visit([](cn_record& record)
+		{
+			record.body.signal = {};
+		});
+	}
+
 	template <typename Slot>
 	[[nodiscard]] auto connect(Slot && slot) -> cn
 	{
-		const auto handle { callbacks_.acquire() };
+		const auto handle { cns_.acquire() };
 
-		*callbacks_.get(handle) = std::move(slot);
+		auto record { cns_.get(handle) };
 
-		return { this, handle };
+		record->body.signal = this;
+		record->body.handle = handle;
+		record->cb = std::move(slot);
+
+		return { &record->body };
 	}
 
 	template <typename Slot>
@@ -54,22 +77,28 @@ public:
 		return connect(std::forward<Slot>(slot));
 	}
 
-	auto disconnect(rcv_handle handle) -> void override
+	auto disconnect(detail::cn_body* cn) -> void override
 	{
-		callbacks_.release(handle);
+		cns_.release(cn->handle);
 	}
 
 	auto operator()(Args... args) -> void
 	{
-		callbacks_.visit([args...](cb_t cb)
+		cns_.visit([args...](const cn_record& record)
 		{
-			cb(args...);
+			record.cb(args...);
 		});
 	}
 
 private:
 
-	rcv<cb_t> callbacks_;
+	struct cn_record
+	{
+		detail::cn_body body;
+		cb_t cb;
+	};
+
+	rcv<cn_record> cns_;
 };
 
 class store
@@ -86,34 +115,30 @@ private:
 	std::vector<cn> connections_;
 };
 
-inline cn::cn() = default;
-
-inline cn::cn(signal_base* s, rcv_handle handle)
-	: s_{s}
-	, handle_{handle}
+inline cn::cn(detail::cn_body* body)
+	: body_{body}
 {
 }
 
 inline cn::cn(cn && rhs) noexcept
-	: s_{rhs.s_}
-	, handle_{rhs.handle_}
+	: body_{rhs.body_}
 {
-	rhs.s_ = {};
+	rhs.body_ = {};
 }
 
 inline auto cn::operator=(cn && rhs) noexcept -> cn&
 {
-	s_ = rhs.s_;
-	handle_ = rhs.handle_;
-	rhs.s_ = {};
+	body_ = rhs.body_;
+	rhs.body_ = {};
 	return *this;
 }
 
 inline cn::~cn()
 {
-	if (!s_) return;
+	if (!body_) return;
+	if (!body_->signal) return;
 
-	s_->disconnect(handle_);
+	body_->signal->disconnect(body_);
 }
 
 } // clog
