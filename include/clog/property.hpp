@@ -47,6 +47,7 @@ public:
 	get(T value) : value_ { value } {}
 	get(get<T> && rhs) = default;
 
+	operator T() { return value_; }
 	operator T() const { return value_; }
 	operator const T&() const { return value_; }
 	bool operator==(const T& value) const { return value_ == value; }
