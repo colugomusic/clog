@@ -187,5 +187,6 @@ private:
 
 template <typename T> using property = setget<T>;
 template <typename T> using proxy_property = proxy_get<T>;
+template <typename T> using readonly_property = get<T>;
 
 } // clog
