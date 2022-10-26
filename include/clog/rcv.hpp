@@ -77,6 +77,7 @@ public:
 	using handle_t = rcv_handle;
 
 	rcv() = default;
+	rcv(const rcv& rhs) = default;
 	rcv(rcv&& rhs) = default;
 
 	auto acquire() -> handle_t
