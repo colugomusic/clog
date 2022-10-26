@@ -28,7 +28,7 @@ public:
 	}
 
 	template <typename Slot>
-	auto observe_expiry(Slot && slot)
+	[[nodiscard]] auto observe_expiry(Slot && slot)
 	{
 		return signal_ >> std::forward<Slot>(slot);
 	}
@@ -54,7 +54,7 @@ public:
 	}
 
 	template <typename Slot>
-	auto observe_expiry(Slot && slot)
+	[[nodiscard]] auto observe_expiry(Slot && slot)
 	{
 		return token_.observe_expiry(slot);
 	}
@@ -82,7 +82,7 @@ public:
 	}
 
 	template <typename Slot>
-	auto observe_expiry(Slot && slot)
+	[[nodiscard]] auto observe_expiry(Slot && slot)
 	{
 		return get_expiry_token().observe_expiry(slot);
 	}
