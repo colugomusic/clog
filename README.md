@@ -11,8 +11,105 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 - [idle.hpp](#idlehpp) - object task queues
 - [property.hpp](include/clog/property.hpp) - set/get property library, not documented
 - [rcv.hpp](include/clog/rcv.hpp) - reusable cell vector, some documentation in header
-- [signal.hpp](include/clog/signal.hpp) - single-threaded signal/slot library, not documented
+- [signal.hpp](#signalhpp) - single-threaded signal/slot library
 - [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
+
+## signal.hpp
+[include/clog/signal.hpp](include/clog/signal.hpp)
+
+It's a single-threaded signal/slot libary. I wrote this because `boost::signals2` proved from profiling to be a bottleneck in my project and I couldn't find any other library that I liked.
+
+Advantages of this library over `boost::signals2`:
+- It's faster. I haven't benchmarked anything but I improved a bunch of visible lag in my program simply by switching everything over to this library.
+- The code isn't a stupid mess so it's much easier to follow the control flow through connections in a debugger.
+
+Disadvantages:
+- Not thread safe
+
+Some quirks of this library:
+- Signals and connections are moveable but not copyable
+- Connections are always scoped. You can't simply set and forget a connection. Connection methods are marked with `[nodiscard]]` so you have to do something with the result. This may be annoying in cases where you know the signal won't outlive the connection but in my opinion it is worth it to be less error prone.
+- There's no `disconnect` method. Disconnects happen automatically when the `clog::cn` goes out of scope. If you want to explicitly disconnect you can just do `connection = {};`
+
+```c++
+struct emitter
+{
+  clog::signal<std::string> hello;
+  clog::signal<std::string, int> goodbye;
+  clog::signal<> trigger;
+  
+  auto emit_hello() -> void
+  {
+    hello("world");
+  }
+  
+  auto emit_goodbye() -> void
+  {
+    goodbye("planet", 5);
+  }
+  
+  auto something_else() -> void
+  {
+    trigger();
+  }
+};
+
+struct receiver
+{
+  // If these objects are active when receiver is
+  // destructed then the connections will be automatically
+  // terminated. It's ok if the connected signal is
+  // destroyed first.
+  clog::cn hello_connection;
+  clog::cn goodbye_connection;
+  clog::cn trigger_connection;
+  
+  auto attach(emitter* e) -> void
+  {
+    const auto on_hello = [](std::string message)
+    {
+      std::cout << "hello " << message << "\n";
+    };
+    
+    const auto on_goodbye = [](std::string message, int n)
+    {
+      for (int i = 0; i < n; i++)
+      {
+        std::cout << "goodbye " << message << "\n";
+      }
+    };
+    
+    hello_connection = e->hello >> on_hello;
+    goodbye_connection = e->goodbye >> on_goodbye;
+    
+    // You can just write the lambda inline if you want
+    trigger_connection = e->trigger >> []()
+    {
+      std::cout << "trigger\n";
+    };
+  }
+};
+
+// An alternative way of storing the connections,
+// using clog::store and the += operator
+struct receiver2
+{
+  clog::store cns;
+  
+  auto attach(emitter* e) -> void
+  {
+    const auto on_hello = [](std::string message) { ... };
+    const auto on_goodbye = [](std::string message, int n) { ... };
+    const auto on_trigger = []() { ... };
+    
+    cns = {}; // clear any existing connections
+    cns += e->hello >> on_hello;
+    cns += e->goodbye >> on_goodbye;
+    cns += e->trigger >> on_trigger;
+  }
+};
+
+```
 
 ## idle.hpp
 [include/clog/idle.hpp](include/clog/idle.hpp)
