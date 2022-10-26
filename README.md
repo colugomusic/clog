@@ -7,17 +7,63 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 
 ## Libraries
 1. [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
-2. [rcv.hpp](include/clog/rcv.hpp) - reusable cell vector, some documentation in header
+2. [rcv.hpp](#rcvhpp) - reusable cell vector, some documentation in header
 3. [signal.hpp](#signalhpp) - single-threaded signal/slot library
 4. [property.hpp](#propertyhpp) - set/get property library
 5. [expire.hpp](#expirehpp) - dying object notifications
 6. [idle.hpp](#idlehpp) - object task queues
 7. [cache.hpp](include/clog/cache.hpp) - a single cached value
 
+## rcv.hpp
+[include/clog/rcv.hpp](include/clog/rcv.hpp)
+
+Reusable Cell Vector
+
+It's a vector of T which can only grow.
+
+- T must be default constructible.
+- T must be copy or move constructible.
+
+You can iterate over the items with visit(). The order of the items in the vector is not guaranteed, e.g.
+
+```c++
+a = v.acquire();
+b = v.acquire();
+
+v.visit([](auto item) { /* b might be visited before a */ });
+```
+
+Adding or removing items from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied, but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
+
+Therefore the index of an item can be used as a handle to retrieve it from the vector. The handle will never be invalidated until `release(handle)` is called.
+
+`acquire()` returns a handle to a new item. retrieve it using `get()`.
+
+```c++
+rsv<thing> items;
+rsv_handle item = items.acquire();
+
+// get() just returns a pointer to the object. do
+// whatever you want with it
+items.get(item)->bar();
+*items.get(item) = thing{};
+*items.get(item) = foo();
+thing* ptr = items.get(item);
+ptr->bar();
+```
+
+`release()` removes the item at the given index (handle). The destructor is not called. The item is simply forgotten about. The destructor may be called later if the cell the item was occupying is reused (by a call to `acquire()`.)
+
+If you actually want the destructor to be called, `destroy()` destructs the object and then calls `release()`. It is equivalent to:
+```c++
+*get(index) = {};
+release(index);
+```
+
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
 
-Requires: [rcv.hpp](include/clog/rcv.hpp), [vectors.hpp](include/clog/vectors.hpp)
+Requires: [rcv.hpp](#rcvhpp), [vectors.hpp](include/clog/vectors.hpp)
 
 It's a single-threaded signal/slot libary. I wrote this because `boost::signals2` proved from profiling to be a bottleneck in my project and I couldn't find any other library that I liked.
 
@@ -109,7 +155,7 @@ struct receiver2
 ## property.hpp
 [include/clog/property.hpp](include/clog/property.hpp)
 
-Requires: [signal.hpp](#signalhpp), [rcv.hpp](include/clog/rcv.hpp), [vectors.hpp](include/clog/vectors.hpp)
+Requires: [signal.hpp](#signalhpp), [rcv.hpp](#rcvhpp), [vectors.hpp](include/clog/vectors.hpp)
 
 It's a library on top of [signal.hpp](#signalhpp) which lets you do this kind of thing:
 
@@ -195,7 +241,7 @@ public:
 ## expire.hpp
 [include/clog/expire.hpp](include/clog/expire.hpp)
 
-Requires: [signal.hpp](#signalhpp), [rcv.hpp](include/clog/rcv.hpp), [vectors.hpp](include/clog/vectors.hpp)
+Requires: [signal.hpp](#signalhpp), [rcv.hpp](#rcvhpp), [vectors.hpp](include/clog/vectors.hpp)
 
 If you inherit from `clog::expirable` you can call `expire()` on it to emit a one-shot "expiry" signal. Repeated calls to `expire()` won't do anything. The expiry signal is automatically emitted when the object is destructed, if `expire()` was not already called explicitly.
 
