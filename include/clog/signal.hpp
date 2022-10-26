@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <iostream>
 #include "rcv.hpp"
 
 namespace clog {
@@ -138,11 +139,19 @@ inline cn::cn(cn && rhs) noexcept
 
 inline auto cn::operator=(cn && rhs) noexcept -> cn&
 {
+	if (body_.signal && !rhs.body_.signal)
+	{
+		body_.signal->disconnect(handle_);
+	}
+
 	body_ = rhs.body_;
 	handle_ = rhs.handle_;
 	rhs.body_ = {};
+
 	if (!body_.signal) return *this;
+
 	body_.signal->update(handle_, &body_);
+
 	return *this;
 }
 
