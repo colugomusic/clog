@@ -39,18 +39,10 @@ struct emitter
   clog::signal<std::string, int> goodbye;
   clog::signal<> trigger;
   
-  auto emit_hello() -> void
+  auto do_things() -> void
   {
     hello("world");
-  }
-  
-  auto emit_goodbye() -> void
-  {
     goodbye("planet", 5);
-  }
-  
-  auto something_else() -> void
-  {
     trigger();
   }
 };
