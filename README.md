@@ -199,7 +199,7 @@ Requires: [signal.hpp](#signalhpp), [rcv.hpp](include/clog/rcv.hpp), [vectors.hp
 
 If you inherit from `clog::expirable` you can call `expire()` on it to emit a one-shot "expiry" signal. Repeated calls to `expire()` won't do anything. The expiry signal is automatically emitted when the object is destructed, if `expire()` was not already called explicitly.
 
-An type inheriting from `clog::attacher` can have expirable objects "attached" to it. When the object expires, it is automatically "detached". Objects can also be detached manually.
+A type inheriting from `clog::attacher` can have expirable objects "attached" to it. When the object expires, it is automatically "detached". Objects can also be detached manually.
 
 When an object is attached, `update(clog::attach<T>)` is called. When an object is detached, `update(clog::detach<T>)` is called.
 
