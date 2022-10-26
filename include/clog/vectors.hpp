@@ -173,9 +173,9 @@ struct vector : public std::vector<T>
 	{
 	}
 
-	auto contains(const T& value) -> bool
+	auto contains(const T& value) const -> bool
 	{
-		return clog::vectors::sorted::contains(*this, value, Compare{});
+		return clog::vectors::sorted::contains(static_cast<std::vector<T>>(*this), value, Compare{});
 	}
 
 	auto insert(T value) -> void
