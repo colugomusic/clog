@@ -25,6 +25,7 @@ Advantages of this library over `boost::signals2`:
 
 Disadvantages:
 - Not thread safe
+- Written by a moron
 
 Some quirks of this library:
 - Signals and connections are moveable but not copyable
