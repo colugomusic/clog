@@ -28,7 +28,7 @@ Disadvantages:
 
 Some quirks of this library:
 - Signals and connections are moveable but not copyable
-- Connections are always scoped. You can't simply set and forget a connection. Connection methods are marked with `[nodiscard]]` so you have to do something with the result. This may be annoying in cases where you know the signal won't outlive the connection but in my opinion it is worth it to be less error prone.
+- Connections are always scoped, i.e. you get a connection object which automatically disconnects the slot when it goes out of scope. You can't simply set and forget a connection. Connection methods are marked with `[nodiscard]]` so you have to do something with the result. This may be annoying in cases where you know the signal won't outlive the slot but in my opinion it is worth it to be less error prone.
 - There's no `disconnect` method. Disconnects happen automatically when the `clog::cn` goes out of scope. If you want to explicitly disconnect you can just do `connection = {};`
 
 ```c++
