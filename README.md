@@ -57,9 +57,9 @@ struct emitter
 
 struct receiver
 {
-  // If these objects are active when receiver is
-  // destructed then the connections will be automatically
-  // terminated. It's ok if the connected signal is
+  // If these connections are active when receiver is
+  // destructed then the slots will be automatically
+  // disconnected. It's ok if the connected signal is
   // destroyed first.
   clog::cn hello_connection;
   clog::cn goodbye_connection;
