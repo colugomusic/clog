@@ -76,6 +76,9 @@ public:
 
 	using handle_t = rcv_handle;
 
+	rcv() = default;
+	rcv(rcv&& rhs) = default;
+
 	auto acquire() -> handle_t
 	{
 		const auto index { next() };

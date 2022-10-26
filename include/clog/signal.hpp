@@ -22,10 +22,12 @@ class cn
 public:
 
 	cn() = default;
+	cn(const cn&) = delete;
 	cn(detail::signal_base* signal, rcv_handle handle);
 	cn(cn && rhs) noexcept;
 	~cn();
 
+	auto operator=(cn&) -> cn& = delete;
 	auto operator=(cn && rhs) noexcept -> cn&;
 
 private:
@@ -57,6 +59,13 @@ public:
 		{
 			record.body->signal = {};
 		});
+	}
+
+	signal(signal&) = delete;
+
+	signal(signal&& rhs)
+		: cns_{ std::move(rhs.cns_) }
+	{
 	}
 
 	template <typename Slot>
@@ -139,7 +148,7 @@ inline cn::cn(cn && rhs) noexcept
 
 inline auto cn::operator=(cn && rhs) noexcept -> cn&
 {
-	if (body_.signal && !rhs.body_.signal)
+	if (body_.signal)
 	{
 		body_.signal->disconnect(handle_);
 	}

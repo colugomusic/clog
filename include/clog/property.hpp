@@ -44,6 +44,7 @@ class get
 public:
 
 	get() : value_ {} {}
+	get(get&) = delete;
 	get(T value) : value_ { value } {}
 	get(get<T> && rhs) = default;
 
@@ -93,6 +94,8 @@ class setget : public get<T>
 {
 public:
 
+	setget(setget&) = delete;
+
 	setget()
 		: setter_{ this }
 	{
@@ -136,9 +139,15 @@ public:
 	using fn_t = std::function<T()>;
 
 	proxy_get() = default;
+	proxy_get(proxy_get&) = delete;
 	proxy_get(fn_t fn) : fn_ { fn } {}
 
 	operator fn_t() const
+	{
+		return fn_;
+	}
+
+	operator fn_t&() const
 	{
 		return fn_;
 	}
