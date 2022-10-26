@@ -61,6 +61,7 @@ public:
 		});
 	}
 
+	signal() = default;
 	signal(signal&) = delete;
 
 	signal(signal&& rhs)
