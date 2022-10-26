@@ -6,16 +6,18 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 - c++17
 
 ## Libraries
-- [cache.hpp](include/clog/cache.hpp) - a single cached value
-- [expire.hpp](include/clog/expire.hpp) - dying object notifications, not documented
-- [idle.hpp](#idlehpp) - object task queues
-- [property.hpp](#propertyhpp) - set/get property library
-- [rcv.hpp](include/clog/rcv.hpp) - reusable cell vector, some documentation in header
-- [signal.hpp](#signalhpp) - single-threaded signal/slot library
-- [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
+1. [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
+2. [rcv.hpp](include/clog/rcv.hpp) - reusable cell vector, some documentation in header
+3. [signal.hpp](#signalhpp) - single-threaded signal/slot library
+4. [property.hpp](#propertyhpp) - set/get property library
+5. [expire.hpp](#expirehpp) - dying object notifications
+6. [idle.hpp](#idlehpp) - object task queues
+7. [cache.hpp](include/clog/cache.hpp) - a single cached value
 
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
+
+Requires: [rcv.hpp](include/clog/rcv.hpp), [vectors.hpp](include/clog/vectors.hpp)
 
 It's a single-threaded signal/slot libary. I wrote this because `boost::signals2` proved from profiling to be a bottleneck in my project and I couldn't find any other library that I liked.
 
@@ -107,6 +109,8 @@ struct receiver2
 ## property.hpp
 [include/clog/property.hpp](include/clog/property.hpp)
 
+Requires: [signal.hpp](#signalhpp), [rcv.hpp](include/clog/rcv.hpp), [vectors.hpp](include/clog/vectors.hpp)
+
 It's a library on top of [signal.hpp](#signalhpp) which lets you do this kind of thing:
 
 ```c++
@@ -188,6 +192,78 @@ public:
 };
 ```
 
+## expire.hpp
+[include/clog/expire.hpp](include/clog/expire.hpp)
+
+Requires: [signal.hpp](#signalhpp), [rcv.hpp](include/clog/rcv.hpp), [vectors.hpp](include/clog/vectors.hpp)
+
+If you inherit from `clog::expirable` you can call `expire()` on it to emit a one-shot "expiry" signal. Repeated calls to `expire()` won't do anything. The expiry signal is automatically emitted when the object is destructed, if `expire()` was not already called explicitly.
+
+An type inheriting from `clog::attacher` can have expirable objects "attached" to it. When the object expires, it is automatically "detached". Objects can also be detached manually.
+
+When an object is attached, `update(clog::attach<T>)` is called. When an object is detached, `update(clog::detach<T>)` is called.
+
+```c++
+struct animal : public clog::expirable
+{
+  ...
+};
+
+struct house : public clog::attacher<house>
+{
+  unordered_set<animal*> animals;
+  unordered_map<ID, clog::store> animal_connections;
+  
+  auto update(clog::attach<animal*> a) -> void
+  {
+    animals.insert(a);
+    
+    const auto on_age_changed = [a](int new_age)
+    {
+      cout << "the age of " << *a->name << " is " << new_age << "\n";
+      print_age_total();
+    };
+    
+    auto& cns = animal_connections[a->id];
+    
+    cns += a->age >> on_age_changed;
+    
+    on_age_changed(a->age);
+  }
+  
+  auto update(clog::detach<animal*> a) -> void
+  {
+    animals.erase(a);
+    animal_connections.erase(a->id);
+  }
+  
+  auto print_age_total() const -> void
+  {
+      cout << "the combined age of all animals is now " << calculate_age_total() << "\n";
+  }
+  
+  auto calculate_age_total() const -> int
+  {
+    int total{0};
+    for (auto animal : animals) total += *animal->age;
+    return total;
+  }
+};
+
+...
+
+house h;
+{
+  animal a;
+  animal b;
+
+  // Attach objects. Calls house::update(clog::attach<animal*>)
+  h << &a;
+  h << &b;
+  
+  // house::update(clog::detach<animal*>) will be called twice at the end of this scope
+} 
+```
 
 ## idle.hpp
 [include/clog/idle.hpp](include/clog/idle.hpp)
