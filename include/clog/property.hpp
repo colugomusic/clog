@@ -57,10 +57,10 @@ public:
 	auto operator->() const { return &value_; }
 
 	template <typename Slot>
-	auto observe(Slot && slot) { return signal_.connect(std::forward<Slot>(slot)); }
+	[[nodiscard]] auto observe(Slot && slot) { return signal_.connect(std::forward<Slot>(slot)); }
 
 	template <typename Slot>
-	auto operator>>(Slot && slot) { return observe(std::forward<Slot>(slot)); }
+	[[nodiscard]] auto operator>>(Slot && slot) { return observe(std::forward<Slot>(slot)); }
 
 private:
 
@@ -160,10 +160,10 @@ public:
 	}
 
 	template <typename Slot>
-	auto observe(Slot && slot) { return signal_.connect(std::forward<Slot>(slot)); }
+	[[nodiscard]] auto observe(Slot && slot) { return signal_.connect(std::forward<Slot>(slot)); }
 
 	template <typename Slot>
-	auto operator>>(Slot && slot) { return observe(std::forward<Slot>(slot)); }
+	[[nodiscard]] auto operator>>(Slot && slot) { return observe(std::forward<Slot>(slot)); }
 
 	auto getter() const { return fn_; }
 	auto get_value() const { return fn_(); }
