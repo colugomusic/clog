@@ -115,7 +115,7 @@ struct receiver2
 ## property.hpp
 [include/clog/property.hpp](include/clog/property.hpp)
 
-It's a library on top of signal.hpp which lets you do this kind of thing:
+It's a library on top of [signal.hpp](#signalhpp) which lets you do this kind of thing:
 
 ```c++
 struct animal
