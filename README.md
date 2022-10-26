@@ -19,10 +19,7 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 
 Reusable Cell Vector
 
-It's a vector of T which can only grow.
-
-- T must be default constructible.
-- T must be copy or move constructible.
+It's a vector of T which can only grow. T must be copy or move constructible.
 
 You can iterate over the items with visit(). The order of the items in the vector is not guaranteed, e.g.
 
@@ -41,7 +38,7 @@ Therefore the index of an item can be used as a handle to retrieve it from the v
 
 ```c++
 rsv<thing> items;
-rsv_handle item = items.acquire();
+rsv_handle item = items.acquire(/*constructor arguments*/);
 
 // get() just returns a pointer to the object. do
 // whatever you want with it
@@ -52,13 +49,7 @@ thing* ptr = items.get(item);
 ptr->bar();
 ```
 
-`release()` removes the item at the given index (handle). The destructor is not called. The item is simply forgotten about. The destructor may be called later if the cell the item was occupying is reused (by a call to `acquire()`.)
-
-If you actually want the destructor to be called, `destroy()` destructs the object and then calls `release()`. It is equivalent to:
-```c++
-*get(index) = {};
-release(index);
-```
+`release()` destroys the item at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid. If `acquire()` is called later, the object might be constructed at that newly opened cell, and the handle would become valid again.
 
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
