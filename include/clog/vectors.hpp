@@ -10,12 +10,17 @@ namespace sorted {
 
 // Check if the sorted vector contains the value.
 // Precondition: The vector is sorted.
+template <typename Begin, typename End, typename T, typename Compare = std::less<T>>
+auto contains(Begin begin, End end, const T& value, Compare compare = Compare{}) -> bool
+{
+	assert (std::is_sorted(begin, end, compare));
+
+	return std::binary_search(begin, end, value, compare);
+}
 template <typename T, typename Compare = std::less<T>>
 auto contains(const std::vector<T>& vector, const T& value, Compare compare = Compare{}) -> bool
 {
-	assert (std::is_sorted(std::cbegin(vector), std::cend(vector), compare));
-
-	return std::binary_search(std::cbegin(vector), std::cend(vector), value, compare);
+	return contains(std::cbegin(vector), std::cend(vector), value, compare);
 }
 
 // Erase all instances of the value from the sorted vector.
