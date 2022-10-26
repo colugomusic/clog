@@ -9,7 +9,7 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 - [cache.hpp](include/clog/cache.hpp) - a single cached value
 - [expire.hpp](include/clog/expire.hpp) - dying object notifications, not documented
 - [idle.hpp](#idlehpp) - object task queues
-- [property.hpp](include/clog/property.hpp) - set/get property library, not documented
+- [property.hpp](#propertyhpp) - set/get property library
 - [rcv.hpp](include/clog/rcv.hpp) - reusable cell vector, some documentation in header
 - [signal.hpp](#signalhpp) - single-threaded signal/slot library
 - [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
@@ -111,6 +111,91 @@ struct receiver2
 };
 
 ```
+
+## property.hpp
+[include/clog/property.hpp](include/clog/property.hpp)
+
+It's a library on top of signal.hpp which lets you do this kind of thing:
+
+```c++
+struct animal
+{
+  // a getter and setter. Any time the value changes a signal is emitted.
+  clog::property<string> name{"unnamed");
+ 
+  // this one has no interface for setting the value, only for getting it.
+  // to set the value you need to create a clog::setter for it.
+  clog::readonly_property<int> age;
+  
+  // instead of storing a value, this one stores a function for retrieving
+  // the value.
+  clog::proxy_property<string> description;
+  
+private:
+  
+  // a private setter for setting the value of the age property.
+  clog::setter<int> age_setter_ { &age };
+
+  clog::store cns_;
+  
+public:
+
+  animal()
+    : age{inital_age}
+  {
+    // You can pass a function into the proxy_property constructor to
+    // initialize it if you want but you can also set it using the =
+    // operator like this:
+    description = []()
+    {
+      stringstream ss;
+      ss << "An animal named " << *name << ". It is " << to_string(*age) << " years old";
+      return ss.str();
+    };
+    
+    const auto on_age_changed = [=](int new_age)
+    {
+      cout << "age was updated to " << new_age << "\n";
+      
+      // This simply emits a signal<> which will be received by
+      // anything connecting to the 'description' property.
+      //
+      // The description function defined above won't be called
+      // until someone reads the property
+      description.notify();
+    };
+    
+    const auto on_name_changed = [=](auto&&...)
+    {
+      // We don't actually use the new name value here but the
+      // signal requires slots to receive the new value as a
+      // function argument.
+      
+      // Sometimes it is nice to be able to call this lambda
+      // directly without having to pass in the argument so
+      // to support that you can use this auto&&... shit
+      
+      description.notify();
+    };
+    
+    cns_ += age >> on_age_changed;
+    cns_ += name >> on_name_changed;
+    
+    on_age_changed(age);
+    on_name_changed();
+    
+    cout << "constructed an animal. Here is a description of it:\n";
+    cout << *description << "\n";
+  }
+  
+  auto grow() -> void
+  {
+    // Signal will be emitted from the 'age' property
+    age_setter_ = *age + 1;
+  }
+};
+```
+
 
 ## idle.hpp
 [include/clog/idle.hpp](include/clog/idle.hpp)
