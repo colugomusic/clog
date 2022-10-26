@@ -1,74 +1,112 @@
 #pragma once
 
+#include <new>
 #include "vectors.hpp"
 
 namespace clog {
+namespace detail {
+
+template<typename T>
+class rcv_allocator : public std::allocator<uint8_t>
+{
+public:
+	static std::align_val_t constexpr ALIGNMENT{ alignof(T) };
+
+	[[nodiscard]] static auto allocate(std::size_t n) -> uint8_t*
+	{
+		if (n > std::numeric_limits<std::size_t>::max())
+		{
+			throw std::bad_array_new_length();
+		}
+
+		return reinterpret_cast<uint8_t*>(::operator new[](n, ALIGNMENT));
+	}
+
+	static auto deallocate(uint8_t* ptr, [[maybe_unused]] std::size_t n) -> void
+	{
+		::operator delete[](ptr, ALIGNMENT);
+	}
+};
+
+template <typename T>
+struct rcv_buffer
+{
+public:
+
+	template <typename... ConstructorArgs>
+	auto construct_at(size_t index, ConstructorArgs... constructor_args) -> T&
+	{
+		const auto memory { get_memory_for_cell(index) };
+		const auto ptr { new(memory) T(constructor_args...) };
+
+		return *ptr;
+	}
+
+	auto destruct_at(size_t index) -> void
+	{
+		get_ptr_to_item(index)->~T();
+	}
+
+	auto operator[](size_t index) -> T&
+	{
+		return *get_ptr_to_item(index);
+	}
+
+	auto operator[](size_t index) const -> const T&
+	{
+		return *get_ptr_to_item(index);
+	}
+
+	auto resize(size_t size) -> void
+	{
+		buffer_.resize(size * sizeof(T));
+	}
+
+	auto size() const -> size_t
+	{
+		return buffer_.size() / sizeof(T);
+	}
+
+private:
+
+	auto get_memory_for_cell(size_t index) -> uint8_t*
+	{
+		assert (index < size());
+		return buffer_.data() + (index * sizeof(T));
+	}
+
+	auto get_memory_for_cell(size_t index) const -> const uint8_t*
+	{
+		assert (index < size());
+		return buffer_.data() + (index * sizeof(T));
+	}
+
+	auto get_ptr_to_item(size_t index) -> T*
+	{
+		return reinterpret_cast<T*>(get_memory_for_cell(index));
+	}
+
+	auto get_ptr_to_item(size_t index) const -> const T*
+	{
+		return reinterpret_cast<T*>(get_memory_for_cell(index));
+	}
+
+	std::vector<uint8_t, rcv_allocator<T>> buffer_;
+};
+
+} // detail
 
 struct rcv_default_resize_strategy
 {
-	template <typename Container>
-	static auto resize(Container* c, size_t required_size) -> void
+	template <typename T>
+	static auto resize(detail::rcv_buffer<T>* buffer, size_t required_size) -> void
 	{
-		c->resize(required_size * 2);
+		buffer->resize(required_size * 2);
 	}
 };
 
 using rcv_handle = size_t;
 
-/*
-** Reusable Cell Vector
-** --------------------
-**
-** It's a vector of T which can only grow.
-**
-** T must be default constructible.
-** T must be copy or move constructible.
-**
-** No memory is deallocated until destruction.
-**
-** You can iterate over the items with visit(). The order of
-** the items in the vector is not guaranteed, i.e.
-**
-**		a = v.acquire();
-**		b = v.acquire();
-**		v.visit([](auto item)
-**		{
-**			// b might be visited before a
-**		});
-**
-** Adding or removing items from the vector doesn't invalidate
-** indices. Everything logically stays where it is (though copy
-** constructors may be called if the vector has to grow.)
-**
-** Therefore the index of an item can be used as a handle to
-** retrieve it from the vector. The handle will never be
-** invalidated until release(handle) is called.
-**
-** acquire() returns a handle to a new item.
-** retrieve it using get().
-**
-**		rsv<thing> items;
-**		rsv_handle item = items.acquire();
-**		
-**		// get() just returns a pointer to the object. do
-**		// whatever you want with it
-**		items.get(item)->bar();
-**		*items.get(item) = thing{};
-**		*items.get(item) = foo();
-**		thing* ptr = items.get(item);
-**		ptr->bar();
-**
-** release() removes the item at the given index (handle). The
-** destructor is not called. The item is simply forgotten about.
-** The destructor may be called later if the cell the item was
-** occupying is reused (by a call to acquire().)
-**
-** destroy() destructs the object and then calls release(). it
-** is equivalent to:
-**
-**		*get(index) = {};
-**		release(index);
-*/
 template <typename T, typename ResizeStrategy = rcv_default_resize_strategy>
 class rcv
 {
@@ -80,16 +118,18 @@ public:
 	rcv(const rcv& rhs) = default;
 	rcv(rcv&& rhs) = default;
 
-	auto acquire() -> handle_t
+	template <typename... ConstructorArgs>
+	auto acquire(ConstructorArgs... constructor_args) -> handle_t
 	{
 		const auto index { next() };
 
-		if (index >= cells_.size())
+		if (index >= buffer_.size())
 		{
-			ResizeStrategy::resize(&cells_, index + 1);
+			ResizeStrategy::resize(&buffer_, index + 1);
 		}
 
 		current_.insert(index);
+		buffer_.construct_at(index, constructor_args...);
 
 		return index;
 	}
@@ -97,6 +137,7 @@ public:
 	auto release(handle_t index) -> void
 	{
 		current_.erase(index);
+		buffer_.destruct_at(index);
 		
 		if (index < next_)
 		{
@@ -104,15 +145,10 @@ public:
 		}
 	}
 
-	auto destroy(handle_t index) -> void
-	{
-		cells_[index] = {};
-		release();
-	}
-
 	auto get(handle_t index) -> T*
 	{
-		return &cells_[index];
+		assert (clog::vectors::sorted::contains(current_, index));
+		return &buffer_[index];
 	}
 
 	template <typename Visitor>
@@ -122,7 +158,7 @@ public:
 
 		for (auto index : current)
 		{
-			visitor(cells_[index]);
+			visitor(buffer_[index]);
 		}
 	}
 
@@ -130,21 +166,30 @@ private:
 
 	auto next() -> size_t
 	{
+		namespace cvs = clog::vectors::sorted;
+
 		const auto out { next_++ };
+		auto check_beg { std::cbegin(current_) };
+		auto check_end { std::cend(current_) };
 
 		while (true)
 		{
-			if (next_ >= cells_.size()) break;
-			if (!current_.contains(next_)) break;
+			if (next_ >= buffer_.size()) break;
+
+			// Check if this cell is occupied
+			check_beg = cvs::find(check_beg, check_end, next_);
+
+			if (check_beg == check_end) break;
 
 			next_++;
+			check_beg++;
 		}
 
 		return out;
 	}
 
 	size_t next_{};
-	std::vector<T> cells_;
+	detail::rcv_buffer<T> buffer_{};
 
 	// List of currently occupied indices
 	// This is only used for iterating over the occupied cells
