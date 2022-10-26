@@ -53,20 +53,23 @@ class signal : public detail::signal_base
 
 public:
 
+	signal() = default;
+	signal(const signal&) = delete;
+	signal(signal&& rhs) noexcept
+		: cns_{ std::move(rhs.cns_) }
+	{
+		cns_.visit([this](cn_record& record)
+		{
+			record.body->signal = this;
+		});
+	}
+
 	~signal()
 	{
 		cns_.visit([](cn_record& record)
 		{
 			record.body->signal = {};
 		});
-	}
-
-	signal() = default;
-	signal(signal&) = delete;
-
-	signal(signal&& rhs)
-		: cns_{ std::move(rhs.cns_) }
-	{
 	}
 
 	template <typename Slot>
