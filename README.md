@@ -30,7 +30,7 @@ b = v.acquire();
 v.visit([](auto item) { /* b might be visited before a */ });
 ```
 
-Adding or removing items from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied, but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
+Adding or removing items from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
 
 Therefore the index of an item can be used as a handle to retrieve it from the vector. The handle will never be invalidated until `release(handle)` is called.
 
@@ -44,12 +44,13 @@ rsv_handle item = items.acquire(/*constructor arguments*/);
 // whatever you want with it
 items.get(item)->bar();
 *items.get(item) = thing{};
-*items.get(item) = foo();
 thing* ptr = items.get(item);
 ptr->bar();
 ```
 
 `release()` destroys the item at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid. If `acquire()` is called later, the object might be constructed at that newly opened cell, and the handle would become valid again.
+
+Calling `release()` while visiting is ok. The release will be deferred until visiting is finished. Calling `release()` while releasing (i.e. in the destructor of an item being released) is also ok.
 
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
