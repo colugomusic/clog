@@ -238,9 +238,9 @@ public:
 	{
 		visiting_++;
 
-		const auto current { current_ };
+		to_visit_ = current_;
 
-		for (auto index : current)
+		for (auto index : to_visit_)
 		{
 			visitor(buffer_[index]);
 		}
@@ -308,6 +308,7 @@ private:
 	// List of currently occupied indices
 	// This is only used for iterating over the occupied cells
 	vectors::sorted::unique::checked::vector<size_t> current_;
+	std::vector<size_t> to_visit_;
 
 	// release() might be called while visiting. If that happens
 	// then don't release the cell right away, push it onto here
