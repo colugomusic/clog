@@ -27,12 +27,12 @@ public:
 
 		const auto bytes_to_allocate { n * sizeof(T) };
 
-		return reinterpret_cast<T*>(::operator new[](bytes_to_allocate, ALIGNMENT));
+		return reinterpret_cast<T*>(::operator new(bytes_to_allocate, ALIGNMENT));
 	}
 
 	auto deallocate(T* ptr, [[maybe_unused]] std::size_t n) -> void
 	{
-		::operator delete[](ptr, ALIGNMENT);
+		::operator delete(ptr, ALIGNMENT);
 	}
 };
 
@@ -96,7 +96,7 @@ public:
 
 	auto resize(size_t size) -> void
 	{
-		if (size < this->size()) return;
+		if (size <= this->size()) return;
 
 		buffer_t new_buffer(size * sizeof(T));
 
@@ -123,6 +123,8 @@ public:
 	{
 		return buffer_.size() / sizeof(T);
 	}
+
+	auto dbg() { return buffer_.data(); }
 
 private:
 
@@ -207,13 +209,13 @@ public:
 
 	auto release(handle_t index) -> void
 	{
-		current_.erase(index);
-		buffer_.destruct_at(index);
-		
-		if (index < next_)
+		if (visiting_ > 0)
 		{
-			next_ = index;
+			deferred_release_.push_back(index);
+			return;
 		}
+
+		do_release(index);
 	}
 
 	auto get(handle_t index) -> T*
@@ -225,15 +227,51 @@ public:
 	template <typename Visitor>
 	auto visit(Visitor visitor) -> void
 	{
+		visiting_++;
+
 		const auto current { current_ };
+
+		T* inspect = reinterpret_cast<T*>(buffer_.dbg());
 
 		for (auto index : current)
 		{
 			visitor(buffer_[index]);
 		}
+
+		if (--visiting_ > 0)
+		{
+			return;
+		}
+
+		while (!deferred_release_.empty())
+		{
+			to_delete_ = deferred_release_;
+			deferred_release_.clear();
+
+			for (auto index : to_delete_)
+			{
+				do_release(index);
+			}
+
+			// deferred_release_ might have more
+			// stuff in it by now, so we loop
+		}
 	}
 
 private:
+
+	auto do_release(handle_t index) -> void
+	{
+		T* inspect = reinterpret_cast<T*>(buffer_.dbg());
+
+		current_.erase(index);
+		buffer_.destruct_at(index);
+
+		if (index < next_)
+		{
+			next_ = index;
+		}
+	}
 
 	auto next() -> size_t
 	{
@@ -248,12 +286,12 @@ private:
 			if (next_ >= buffer_.size()) break;
 
 			// Check if this cell is occupied
-			check_beg = cvs::find(check_beg, check_end, next_);
+			check_beg = std::lower_bound(check_beg, check_end, next_);
 
 			if (check_beg == check_end) break;
+			if (*check_beg != next_) break;
 
 			next_++;
-			check_beg++;
 		}
 
 		return out;
@@ -265,6 +303,19 @@ private:
 	// List of currently occupied indices
 	// This is only used for iterating over the occupied cells
 	vectors::sorted::unique::checked::vector<size_t> current_;
+
+	// release() might be called while visiting. If that happens
+	// then don't release the cell right away, push it onto here
+	// and the release will be deferred until we are done
+	// visiting.
+	// Additionally, release might be called again while
+	// processing this list! So we keep processing it until it
+	// is empty.
+	std::vector<size_t> deferred_release_;
+	std::vector<size_t> to_delete_;
+
+	// >0 while visiting
+	int visiting_{0};
 };
 
 } // clog
