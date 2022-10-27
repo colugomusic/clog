@@ -17,11 +17,40 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 ## rcv.hpp
 [include/clog/rcv.hpp](include/clog/rcv.hpp)
 
+Requires: [vectors.hpp](include/clog/vectors.hpp)
+
 Reusable Cell Vector
 
-It's a vector of T which can only grow. T must be copy or move constructible.
+It's a vector of T which can only grow.
 
-You can iterate over the items with visit(). The order of the items in the vector is not guaranteed, e.g.
+The public interface is:
+```c++
+template <typename T, typename ResizeStrategy = rcv_default_resize_strategy>
+class rcv
+{
+public:
+	using handle_t = rcv_handle;
+	rcv();
+	rcv(const rcv& rhs);
+	rcv(rcv&& rhs);
+	template <typename... ConstructorArgs>
+	auto acquire(ConstructorArgs... constructor_args) -> handle_t;
+	auto release(handle_t index) -> void;
+	auto get(handle_t index) -> T*;
+	template <typename Visitor>
+	auto visit(Visitor visitor) -> void;
+};
+```
+
+- T must be copy or move constructible.
+- You can't choose where in the vector new elements are inserted.
+- Inserting new elements is fast when there's already enough capacity.
+- Removing existing elements from anywhere in the vector is very fast.
+- Iterating over the elements is very fast.
+- Elements may become fragmented, but only within a single contiguous block of memory.
+- The `reserve()` method does *not* work by inserting default-initialized elements in the empty cells. The memory will be reserved but no actual objects will be constructed there. A cell is empty until a call to `acquire()` constructs an element there.
+
+You can iterate over the elements with visit(). The order of the elements in the vector is not guaranteed, e.g.
 
 ```c++
 a = v.acquire();
@@ -30,11 +59,11 @@ b = v.acquire();
 v.visit([](auto item) { /* b might be visited before a */ });
 ```
 
-Adding or removing items from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
+Adding or removing elements from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
 
-Therefore the index of an item can be used as a handle to retrieve it from the vector. The handle will never be invalidated until `release(handle)` is called.
+Therefore the index of an element can be used as a handle to retrieve it from the vector. The handle will never be invalidated until `release(handle)` is called.
 
-`acquire()` returns a handle to a new item. retrieve it using `get()`.
+`acquire()` returns a handle to a new element. retrieve it using `get()`.
 
 ```c++
 rsv<thing> items;
@@ -48,7 +77,9 @@ thing* ptr = items.get(item);
 ptr->bar();
 ```
 
-`release()` destroys the item at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid. If `acquire()` is called later, the object might be constructed at that newly opened cell, and the handle would become valid again.
+`release()` destroys the element at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid.
+
+Note that the memory of the released cell is not freed, but the destructor will be run so there will be no object there anymore. If `acquire()` is called later, the new element might be constructed at that newly opened cell, and the handle pointing to that index would become valid again.
 
 Calling `release()` while visiting is ok. The release will be deferred until visiting is finished. Calling `release()` while releasing (i.e. in the destructor of an item being released) is also ok.
 
@@ -228,6 +259,26 @@ public:
     age_setter_ = *age + 1;
   }
 };
+
+...
+
+animal a;
+clog::store cns;
+
+const auto on_desc_changed = [](function<string()> get)
+{
+  cout << "animal description: " << get() << "\n";
+};
+
+const auto on_name_changed = [](string new_name)
+{
+  cout << "animal name: " << new_name << "\n";
+};
+
+cns += a.description >> on_description_changed;
+cns += a.name >> on_name_changed;
+
+a.name = "Harold"; // both those lambdas will be called
 ```
 
 ## expire.hpp
