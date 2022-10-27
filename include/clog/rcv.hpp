@@ -46,6 +46,7 @@ private:
 public:
 
 	rcv_buffer() = default;
+	rcv_buffer(rcv_buffer&& rhs) noexcept = default;
 
 	rcv_buffer(const rcv_buffer& rhs)
 		: buffer_{ rhs.buffer_.size() }
@@ -67,11 +68,6 @@ public:
 		}
 	}
 
-	rcv_buffer(rcv_buffer&& rhs) noexcept
-		: buffer_{ std::move(rhs.buffer_) }
-	{
-	}
-
 	template <typename... ConstructorArgs>
 	auto construct_at(size_t index, ConstructorArgs&&... constructor_args) -> T&
 	{
@@ -81,16 +77,19 @@ public:
 
 	auto destruct_at(size_t index) -> void
 	{
+		assert (index < size());
 		get_ptr_to_item(index)->~T();
 	}
 
 	auto operator[](size_t index) -> T&
 	{
+		assert (index < size());
 		return *get_ptr_to_item(index);
 	}
 
 	auto operator[](size_t index) const -> const T&
 	{
+		assert (index < size());
 		return *get_ptr_to_item(index);
 	}
 
@@ -130,8 +129,6 @@ public:
 	{
 		return buffer_.size() / sizeof(T);
 	}
-
-	auto dbg() { return buffer_.data(); }
 
 private:
 
@@ -238,8 +235,6 @@ public:
 
 		const auto current { current_ };
 
-		T* inspect = reinterpret_cast<T*>(buffer_.dbg());
-
 		for (auto index : current)
 		{
 			visitor(buffer_[index]);
@@ -269,8 +264,6 @@ private:
 
 	auto do_release(handle_t index) -> void
 	{
-		T* inspect = reinterpret_cast<T*>(buffer_.dbg());
-
 		current_.erase(index);
 		buffer_.destruct_at(index);
 
