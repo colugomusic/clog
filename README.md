@@ -21,9 +21,16 @@ Requires: [vectors.hpp](include/clog/vectors.hpp)
 
 Reusable Cell Vector
 
-It's a vector of T which can only grow. T must be copy or move constructible.
+It's a vector of T which can only grow.
 
-You can iterate over the items with visit(). The order of the items in the vector is not guaranteed, e.g.
+- T must be copy or move constructible.
+- You can't choose where in the vector new items are added.
+- Removing existing items from anywhere in the vector is very fast.
+- Iterating over the vector is very fast.
+- Items may become fragmented, but only within a single contiguous block of memory.
+- The `reserve()` method does *not* work by inserting default-initialized elements in the empty cells. The memory will be reserved but no actual objects will be constructed there. A cell is empty until a call to `acquire()` constructs an element there.
+
+You can iterate over the elements with visit(). The order of the elements in the vector is not guaranteed, e.g.
 
 ```c++
 a = v.acquire();
@@ -32,11 +39,11 @@ b = v.acquire();
 v.visit([](auto item) { /* b might be visited before a */ });
 ```
 
-Adding or removing items from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
+Adding or removing elements from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
 
-Therefore the index of an item can be used as a handle to retrieve it from the vector. The handle will never be invalidated until `release(handle)` is called.
+Therefore the index of an element can be used as a handle to retrieve it from the vector. The handle will never be invalidated until `release(handle)` is called.
 
-`acquire()` returns a handle to a new item. retrieve it using `get()`.
+`acquire()` returns a handle to a new element. retrieve it using `get()`.
 
 ```c++
 rsv<thing> items;
@@ -50,7 +57,9 @@ thing* ptr = items.get(item);
 ptr->bar();
 ```
 
-`release()` destroys the item at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid. Note that the memory of the released cell is not freed, but the destructor will be run so there will be no object there anymore. If `acquire()` is called later, the new object might be constructed at that newly opened cell, and the handle pointing to that index would become valid again.
+`release()` destroys the element at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid.
+
+Note that the memory of the released cell is not freed, but the destructor will be run so there will be no object there anymore. If `acquire()` is called later, the new object might be constructed at that newly opened cell, and the handle pointing to that index would become valid again.
 
 Calling `release()` while visiting is ok. The release will be deferred until visiting is finished. Calling `release()` while releasing (i.e. in the destructor of an item being released) is also ok.
 
