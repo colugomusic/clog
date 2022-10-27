@@ -7,7 +7,7 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 
 ## Libraries
 1. [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
-2. [rcv.hpp](#rcvhpp) - reusable cell vector, some documentation in header
+2. [rcv.hpp](#rcvhpp) - reusable cell vector
 3. [signal.hpp](#signalhpp) - single-threaded signal/slot library
 4. [property.hpp](#propertyhpp) - set/get property library
 5. [expire.hpp](#expirehpp) - dying object notifications
@@ -105,6 +105,7 @@ Some quirks of this library:
 - Signals and connections are moveable but not copyable
 - Connections are always scoped, i.e. you get a connection object which automatically disconnects the slot when it goes out of scope. You can't simply set and forget a connection. Connection methods are marked with `[nodiscard]]` so you have to do something with the result. This may be annoying in cases where you know the signal won't outlive the slot but in my opinion it is worth it to be less error prone.
 - There's no `disconnect` method. Disconnects happen automatically when the `clog::cn` goes out of scope. If you want to explicitly disconnect you can just do `connection = {};`
+- Doing awkward things like connecting/disconnecting a slot to/from a signal while inside a slot connected to the same signal is ok.
 
 ```c++
 struct emitter
