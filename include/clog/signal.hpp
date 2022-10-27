@@ -96,10 +96,32 @@ public:
 
 	auto operator()(Args... args) -> void
 	{
-		cns_.visit([args...](const cn_record& record)
+		std::vector<cb_t> to_visit;
+
+		to_visit.reserve(cns_.size());
+
+		cns_.visit([&to_visit](const cn_record& record)
 		{
-			record.cb(args...);
+			// If something gets deleted during rcv::visit() and rcv::release() gets called, the
+			// release is deferred until after we finish iterating over each element. Then the
+			// released elements will finally be destructed.
+
+			// This signal object might be managed by a shared pointer or something, and one of
+			// these function objects might hold the last remaining reference to us! So if that
+			// function object gets destructed at the end of rcv::visit(), we would be deleted
+			// along with it!!!
+
+			// So instead of just calling these callbacks directly here, we push a copy of each
+			// of them onto this vector and process them there just in case. This way there will
+			// always be at least one remaining reference to us if we are ultimatley being
+			// managed somewhere up the stack by some reference counting mechanism.
+			to_visit.push_back(record.cb);
 		});
+
+		for (const auto& cb : to_visit)
+		{
+			cb(args...);
+		}
 	}
 
 private:
