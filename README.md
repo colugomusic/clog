@@ -23,9 +23,28 @@ Reusable Cell Vector
 
 It's a vector of T which can only grow.
 
+The public interface is:
+```c++
+template <typename T, typename ResizeStrategy = rcv_default_resize_strategy>
+class rcv
+{
+public:
+	using handle_t = rcv_handle;
+	rcv();
+	rcv(const rcv& rhs);
+	rcv(rcv&& rhs);
+	template <typename... ConstructorArgs>
+	auto acquire(ConstructorArgs... constructor_args) -> handle_t;
+	auto release(handle_t index) -> void;
+	auto get(handle_t index) -> T*;
+	template <typename Visitor>
+	auto visit(Visitor visitor) -> void;
+};
+```
+
 - T must be copy or move constructible.
 - You can't choose where in the vector new elements are inserted.
-- Inserting new elements is fast.
+- Inserting new elements is fast when there's already enough capacity.
 - Removing existing elements from anywhere in the vector is very fast.
 - Iterating over the elements is very fast.
 - Elements may become fragmented, but only within a single contiguous block of memory.
