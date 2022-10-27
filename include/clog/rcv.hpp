@@ -110,7 +110,14 @@ public:
 			{
 				auto item { get_ptr_to_item(i) };
 
-				construct_at(&new_buffer, i, std::move(*item));
+				if constexpr (std::is_nothrow_move_constructible_v<T>)
+				{
+					construct_at(&new_buffer, i, std::move(*item));
+				}
+				else
+				{
+					construct_at(&new_buffer, i, *item);
+				}
 
 				item->~T();
 			}
