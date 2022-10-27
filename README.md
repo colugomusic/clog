@@ -33,6 +33,8 @@ public:
 	rcv();
 	rcv(const rcv& rhs);
 	rcv(rcv&& rhs);
+	auto capacity() const -> size_t;
+	auto size() const -> size_t;
 	auto reserve(size_t size) -> void;
 	template <typename... ConstructorArgs>
 	auto acquire(ConstructorArgs... constructor_args) -> handle_t;
@@ -96,6 +98,7 @@ It's a single-threaded signal/slot libary. I wrote this because `boost::signals2
 Advantages of this library over `boost::signals2`:
 - It's faster. I haven't benchmarked anything but I improved a bunch of visible lag in my program simply by switching everything over to this library. (Yes i know you can use a dummy mutex with boost if you don't need multithreading support. It's still much slower than this library even if you do that.)
 - The code isn't a stupid mess so it's much easier to follow the control flow through connections in a debugger.
+- It compiles faster
 
 Disadvantages:
 - Not thread safe
