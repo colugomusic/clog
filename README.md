@@ -110,7 +110,7 @@ Some quirks of this library:
 - Connections are always scoped, i.e. you get a connection object which automatically disconnects the slot when it goes out of scope. You can't simply set and forget a connection. Connection methods are marked with `[nodiscard]]` so you have to do something with the result. This may be annoying in cases where you know the signal won't outlive the slot but in my opinion it is worth it to be less error prone.
 - There's no `disconnect` method. Disconnects happen automatically when the `clog::cn` goes out of scope. If you want to explicitly disconnect you can just do `connection = {};`
 - Connecting more slots while the signal is emitting is supported.
-- Disconnecting a slot while the signal is emitted is supported, but is not optimal. (The signal will take a temporary copy of all its current connections to work around a corner case where deleting the function object would cause the signal itself to be deleted.)
+- Disconnecting a slot while the signal is emitting is supported, but is not optimal. (The signal will take a temporary copy of all its current connections to work around a corner case where deleting the function object would cause the signal itself to be deleted.)
 
 ```c++
 struct emitter
