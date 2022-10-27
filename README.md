@@ -228,6 +228,26 @@ public:
     age_setter_ = *age + 1;
   }
 };
+
+...
+
+animal a;
+clog::store cns;
+
+const auto on_desc_changed = [](function<string()> get)
+{
+  cout << "animal description: " << get() << "\n";
+};
+
+const auto on_name_changed = [](string new_name)
+{
+  cout << "animal name: " << new_name << "\n";
+};
+
+cns += a.description >> on_description_changed;
+cns += a.name >> on_name_changed;
+
+a.name = "Harold"; // both those lambdas will be called
 ```
 
 ## expire.hpp
