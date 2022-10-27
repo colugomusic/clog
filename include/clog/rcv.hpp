@@ -195,6 +195,11 @@ public:
 	rcv(const rcv& rhs) = default;
 	rcv(rcv&& rhs) = default;
 
+	auto reserve(size_t size) -> void
+	{
+		buffer_.resize(size);
+	}
+
 	template <typename... ConstructorArgs>
 	auto acquire(ConstructorArgs... constructor_args) -> handle_t
 	{
