@@ -17,6 +17,8 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 ## rcv.hpp
 [include/clog/rcv.hpp](include/clog/rcv.hpp)
 
+Requires: [vectors.hpp](include/clog/vectors.hpp)
+
 Reusable Cell Vector
 
 It's a vector of T which can only grow. T must be copy or move constructible.
