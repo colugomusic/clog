@@ -7,7 +7,7 @@ spaghetti code spider web object oriented hell scape. all software is garbage an
 
 ## Libraries
 1. [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
-2. [rcv.hpp](#rcvhpp) - reusable cell vector, some documentation in header
+2. [rcv.hpp](#rcvhpp) - reusable cell vector
 3. [signal.hpp](#signalhpp) - single-threaded signal/slot library
 4. [property.hpp](#propertyhpp) - set/get property library
 5. [expire.hpp](#expirehpp) - dying object notifications
