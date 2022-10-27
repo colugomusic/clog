@@ -111,6 +111,7 @@ Some quirks of this library:
 - There's no `disconnect` method. Disconnects happen automatically when the `clog::cn` goes out of scope. If you want to explicitly disconnect you can just do `connection = {};`
 - Connecting more slots while the signal is emitting is supported.
 - Disconnecting a slot while the signal is emitting is supported, but is not optimal. (The signal will take a temporary copy of all its current connections to work around a corner case where deleting the function object would cause the signal itself to be deleted.)
+- Slots will not necessarily be visited in the same order that they were connected.
 
 ```c++
 struct emitter

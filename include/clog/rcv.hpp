@@ -27,32 +27,17 @@ public:
 
 	rcv_buffer() = default;
 
+	rcv_buffer(size_t initial_size)
+		: buffer_size_{initial_size * sizeof(T)}
+		, buffer_{allocate<T>(buffer_size_)}
+	{
+	}
+
 	rcv_buffer(rcv_buffer&& rhs) noexcept
 		: buffer_{rhs.buffer_}
 		, buffer_size_{rhs.buffer_size_}
 	{
 		rhs.buffer_size_ = 0;
-	}
-
-	rcv_buffer(const rcv_buffer& rhs)
-		: buffer_size_{rhs.buffer_size_}
-	{
-		if (buffer_size_ == 0) return;
-
-		buffer_ = allocate<T>(buffer_size_);
-
-		if constexpr (std::is_trivially_copy_constructible_v<T>)
-		{
-			memcpy(buffer_, rhs.buffer_, buffer_size_);
-			return;
-		}
-
-		for (size_t i = 0; i < size(); i++)
-		{
-			auto item { rhs.get_ptr_to_item(i) };
-
-			construct_at(buffer_, i, *item);
-		}
 	}
 
 	~rcv_buffer()
@@ -62,6 +47,20 @@ public:
 		assert (buffer_size_ % sizeof(T) == 0);
 
 		deallocate<T>(buffer_);
+	}
+
+	auto operator=(rcv_buffer&& rhs) -> rcv_buffer&
+	{
+		buffer_ = rhs.buffer_;
+		buffer_size_ = rhs.buffer_size_;
+		rhs.buffer_size_ = 0;
+		return *this;
+	}
+
+	auto set(const rcv_buffer& rhs) -> void
+	{
+		assert (buffer_size_ >= rhs.buffer_size_);
+		memcpy(buffer_, rhs.buffer_, rhs.buffer_size_);
 	}
 
 	template <typename... ConstructorArgs>
@@ -87,41 +86,6 @@ public:
 	{
 		assert (index < size());
 		return *get_ptr_to_item(index);
-	}
-
-	auto resize(size_t size) -> void
-	{
-		if (size <= this->size()) return;
-
-		const auto new_buffer_size { size * sizeof(T) };
-		const auto new_buffer { allocate<T>(new_buffer_size) };
-
-		if constexpr (std::is_trivially_copy_constructible_v<T>)
-		{
-			memcpy(new_buffer, buffer_, buffer_size_);
-		}
-		else
-		{
-			for (size_t i = 0; i < this->size(); i++)
-			{
-				auto item { get_ptr_to_item(i) };
-
-				if constexpr (std::is_nothrow_move_constructible_v<T>)
-				{
-					construct_at(new_buffer, i, std::move(*item));
-				}
-				else
-				{
-					construct_at(new_buffer, i, *item);
-				}
-
-				item->~T();
-			}
-		}
-
-		deallocate<T>(buffer_);
-		buffer_ = new_buffer;
-		buffer_size_ = new_buffer_size;
 	}
 
 	auto size() const -> size_t
@@ -167,18 +131,19 @@ private:
 		return reinterpret_cast<const T*>(get_memory_for_cell(index));
 	}
 
-	uint8_t* buffer_{};
 	size_t buffer_size_{0};
+	uint8_t* buffer_{};
 };
 
 } // detail
 
 struct rcv_default_resize_strategy
 {
-	template <typename T>
-	static auto resize(detail::rcv_buffer<T>* buffer, size_t required_size) -> void
+	static auto resize(size_t current_size, size_t required_size) -> size_t
 	{
-		buffer->resize(required_size * 2);
+		if (current_size >= required_size) return current_size;
+
+		return required_size * 2;
 	}
 };
 
@@ -192,8 +157,24 @@ public:
 	using handle_t = rcv_handle;
 
 	rcv() = default;
-	rcv(const rcv& rhs) = default;
 	rcv(rcv&& rhs) = default;
+
+	rcv(const rcv& rhs)
+		: next_{rhs.next_}
+		, buffer_{rhs.buffer_.size()}
+		, current_{rhs.current_}
+	{
+		if constexpr (std::is_trivially_copy_constructible_v<T>)
+		{
+			buffer_.set(rhs.buffer_);
+			return;
+		}
+
+		for (const auto index : current_)
+		{
+			buffer_.construct_at(index, rhs.buffer_[index]);
+		}
+	}
 
 	~rcv()
 	{
@@ -232,7 +213,7 @@ public:
 
 		if (index >= buffer_.size())
 		{
-			ResizeStrategy::resize(&buffer_, index + 1);
+			resize(ResizeStrategy::resize(buffer_.size(), index + 1));
 		}
 
 		current_.insert(index);
@@ -311,6 +292,38 @@ private:
 		}
 
 		return out;
+	}
+
+	auto resize(size_t new_size) -> void
+	{
+		if (buffer_.size() >= new_size) return;
+
+		detail::rcv_buffer<T> new_buffer{new_size};
+
+		if constexpr (std::is_trivially_copy_constructible_v<T>)
+		{
+			new_buffer_.set(buffer_);
+			buffer_ = std::move(new_buffer);
+			return;
+		}
+
+		for (const auto index : current_)
+		{
+			auto& item { buffer_[index] };
+
+			if constexpr (std::is_nothrow_move_constructible_v<T>)
+			{
+				new_buffer.construct_at(index, std::move(item));
+			}
+			else
+			{
+				new_buffer.construct_at(index, item);
+			}
+
+			item.~T();
+		}
+
+		buffer_ = std::move(new_buffer);
 	}
 
 	size_t next_{};
