@@ -33,6 +33,7 @@ public:
 	rcv();
 	rcv(const rcv& rhs);
 	rcv(rcv&& rhs);
+	auto reserve(size_t size) -> void;
 	template <typename... ConstructorArgs>
 	auto acquire(ConstructorArgs... constructor_args) -> handle_t;
 	auto release(handle_t index) -> void;
