@@ -6,23 +6,31 @@
 namespace clog {
 namespace detail {
 
-template<typename T>
-class rcv_allocator : public std::allocator<uint8_t>
+template<typename T, typename AlignAs>
+class rcv_allocator
 {
-public:
-	static std::align_val_t constexpr ALIGNMENT{ alignof(T) };
+private:
+	static_assert (alignof(AlignAs) >= alignof(T));
+	static std::align_val_t constexpr ALIGNMENT{ alignof(AlignAs) };
 
-	[[nodiscard]] static auto allocate(std::size_t n) -> uint8_t*
+public:
+	using value_type = T;
+	rcv_allocator() noexcept {}
+	template<typename U> rcv_allocator(rcv_allocator<U, AlignAs> const&) noexcept {}
+
+	[[nodiscard]] auto allocate(std::size_t n) -> T*
 	{
-		if (n > std::numeric_limits<std::size_t>::max())
+		if (n > std::numeric_limits<std::size_t>::max() / sizeof(T))
 		{
 			throw std::bad_array_new_length();
 		}
 
-		return reinterpret_cast<uint8_t*>(::operator new[](n, ALIGNMENT));
+		const auto bytes_to_allocate { n * sizeof(T) };
+
+		return reinterpret_cast<T*>(::operator new[](bytes_to_allocate, ALIGNMENT));
 	}
 
-	static auto deallocate(uint8_t* ptr, [[maybe_unused]] std::size_t n) -> void
+	auto deallocate(T* ptr, [[maybe_unused]] std::size_t n) -> void
 	{
 		::operator delete[](ptr, ALIGNMENT);
 	}
@@ -31,15 +39,44 @@ public:
 template <typename T>
 struct rcv_buffer
 {
+private:
+
+	using buffer_t = std::vector<uint8_t, rcv_allocator<uint8_t, T>>;
+
 public:
 
-	template <typename... ConstructorArgs>
-	auto construct_at(size_t index, ConstructorArgs... constructor_args) -> T&
-	{
-		const auto memory { get_memory_for_cell(index) };
-		const auto ptr { new(memory) T(constructor_args...) };
+	rcv_buffer() = default;
 
-		return *ptr;
+	rcv_buffer(const rcv_buffer& rhs)
+		: buffer_{ rhs.buffer_.size() }
+	{
+		if constexpr (std::is_trivially_copy_constructible_v<T>)
+		{
+			memcpy(buffer_.data(), rhs.buffer_.data(), rhs.buffer_.size());
+		}
+		else
+		{
+			for (size_t i = 0; i < this->size(); i++)
+			{
+				auto item { rhs.get_ptr_to_item(i) };
+
+				construct_at(&buffer_, i, *item);
+
+				item->~T();
+			}
+		}
+	}
+
+	rcv_buffer(rcv_buffer&& rhs) noexcept
+		: buffer_{ std::move(rhs.buffer_) }
+	{
+	}
+
+	template <typename... ConstructorArgs>
+	auto construct_at(size_t index, ConstructorArgs&&... constructor_args) -> T&
+	{
+		assert (index < size());
+		return construct_at(&buffer_, index, std::forward<ConstructorArgs>(constructor_args)...);
 	}
 
 	auto destruct_at(size_t index) -> void
@@ -59,7 +96,27 @@ public:
 
 	auto resize(size_t size) -> void
 	{
-		buffer_.resize(size * sizeof(T));
+		if (size < this->size()) return;
+
+		buffer_t new_buffer(size * sizeof(T));
+
+		if constexpr (std::is_trivially_copy_constructible_v<T>)
+		{
+			memcpy(new_buffer.data(), buffer_.data(), buffer_.size());
+		}
+		else
+		{
+			for (size_t i = 0; i < this->size(); i++)
+			{
+				auto item { get_ptr_to_item(i) };
+
+				construct_at(&new_buffer, i, std::move(*item));
+
+				item->~T();
+			}
+		}
+
+		buffer_ = std::move(new_buffer);
 	}
 
 	auto size() const -> size_t
@@ -69,16 +126,30 @@ public:
 
 private:
 
+	template <typename... ConstructorArgs>
+	static auto construct_at(buffer_t* buffer, size_t index, ConstructorArgs&&... constructor_args) -> T&
+	{
+		const auto memory { get_memory_for_cell(buffer, index) };
+		const auto ptr { new(memory) T(std::forward<ConstructorArgs>(constructor_args)...) };
+
+		return *ptr;
+	}
+
+	static auto get_memory_for_cell(buffer_t* buffer, size_t index) -> uint8_t*
+	{
+		return buffer->data() + (index * sizeof(T));
+	}
+
 	auto get_memory_for_cell(size_t index) -> uint8_t*
 	{
 		assert (index < size());
-		return buffer_.data() + (index * sizeof(T));
+		return get_memory_for_cell(&buffer_, index);
 	}
 
 	auto get_memory_for_cell(size_t index) const -> const uint8_t*
 	{
 		assert (index < size());
-		return buffer_.data() + (index * sizeof(T));
+		return get_memory_for_cell(&buffer_, index);
 	}
 
 	auto get_ptr_to_item(size_t index) -> T*
@@ -91,7 +162,7 @@ private:
 		return reinterpret_cast<T*>(get_memory_for_cell(index));
 	}
 
-	std::vector<uint8_t, rcv_allocator<T>> buffer_;
+	buffer_t buffer_;
 };
 
 } // detail
