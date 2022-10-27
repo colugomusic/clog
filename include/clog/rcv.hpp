@@ -44,17 +44,14 @@ public:
 		if constexpr (std::is_trivially_copy_constructible_v<T>)
 		{
 			memcpy(buffer_, rhs.buffer_, buffer_size_);
+			return;
 		}
-		else
+
+		for (size_t i = 0; i < size(); i++)
 		{
-			for (size_t i = 0; i < size(); i++)
-			{
-				auto item { rhs.get_ptr_to_item(i) };
+			auto item { rhs.get_ptr_to_item(i) };
 
-				construct_at(buffer_, i, *item);
-
-				item->~T();
-			}
+			construct_at(buffer_, i, *item);
 		}
 	}
 
