@@ -167,7 +167,7 @@ private:
 
 	auto get_ptr_to_item(size_t index) const -> const T*
 	{
-		return reinterpret_cast<T*>(get_memory_for_cell(index));
+		return reinterpret_cast<const T*>(get_memory_for_cell(index));
 	}
 
 	uint8_t* buffer_{};
@@ -200,16 +200,32 @@ public:
 
 	~rcv()
 	{
-		deferred_release_ = current_;
-		do_deferred_release();
+		assert (!visiting_);
+
+		for (const auto index : current_)
+		{
+			buffer_.destruct_at(index);
+		}
 	}
 
-	auto capacity() const { return buffer_.size(); }
-	auto size() const { return current_.size(); }
+	auto active_cells() const -> std::vector<size_t>
+	{
+		return current_;
+	}
+
+	auto capacity() const
+	{
+		return buffer_.size();
+	}
 
 	auto reserve(size_t size) -> void
 	{
 		buffer_.resize(size);
+	}
+
+	auto size() const
+	{
+		return current_.size();
 	}
 
 	template <typename... ConstructorArgs>
@@ -230,13 +246,13 @@ public:
 
 	auto release(handle_t index) -> void
 	{
-		if (visiting_ > 0)
-		{
-			deferred_release_.push_back(index);
-			return;
-		}
+		current_.erase(index);
+		buffer_.destruct_at(index);
 
-		do_release(index);
+		if (index < next_)
+		{
+			next_ = index;
+		}
 	}
 
 	auto get(handle_t index) -> T*
@@ -248,51 +264,32 @@ public:
 	template <typename Visitor>
 	auto visit(Visitor visitor) -> void
 	{
-		visiting_++;
+		visit_begin();
 
 		to_visit_ = current_;
 
-		for (auto index : to_visit_)
+		for (const auto index : to_visit_)
 		{
 			visitor(buffer_[index]);
 		}
 
-		if (--visiting_ > 0)
-		{
-			return;
-		}
-
-		do_deferred_release();
+		visit_finish();
 	}
 
 private:
 
-	auto do_deferred_release() -> void
+	auto visit_begin()
 	{
-		while (!deferred_release_.empty())
-		{
-			to_delete_ = deferred_release_;
-			deferred_release_.clear();
-
-			for (auto index : to_delete_)
-			{
-				do_release(index);
-			}
-
-			// deferred_release_ might have more
-			// stuff in it by now, so we loop
-		}
+#		if _DEBUG
+		visiting_ = true;
+#		endif
 	}
 
-	auto do_release(handle_t index) -> void
+	auto visit_finish()
 	{
-		current_.erase(index);
-		buffer_.destruct_at(index);
-
-		if (index < next_)
-		{
-			next_ = index;
-		}
+#		if _DEBUG
+		visiting_ = false;
+#		endif
 	}
 
 	auto next() -> size_t
@@ -325,20 +322,14 @@ private:
 	// List of currently occupied indices
 	// This is only used for iterating over the occupied cells
 	vectors::sorted::unique::checked::vector<size_t> current_;
+
+	// Handles currently being visited
 	std::vector<size_t> to_visit_;
 
-	// release() might be called while visiting. If that happens
-	// then don't release the cell right away, push it onto here
-	// and the release will be deferred until we are done
-	// visiting.
-	// Additionally, release might be called again while
-	// processing this list! So we keep processing it until it
-	// is empty.
-	std::vector<size_t> deferred_release_;
-	std::vector<size_t> to_delete_;
-
-	// >0 while visiting
-	int visiting_{0};
+#	if _DEBUG
+	// true while visiting, for assertions
+	bool visiting_{false};
+#	endif
 };
 
 } // clog

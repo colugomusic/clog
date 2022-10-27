@@ -69,6 +69,10 @@ public:
 		{
 			record.body->signal = {};
 		});
+
+		do_deferred_disconnections();
+		deferred_disconnect_ = cns_.active_cells();
+		do_deferred_disconnections();
 	}
 
 	template <typename Slot>
@@ -91,40 +95,66 @@ public:
 
 	auto disconnect(rcv_handle handle) -> void override
 	{
+		if (visiting_ > 0)
+		{
+			deferred_disconnect_.push_back(handle);
+			return;
+		}
+
 		cns_.release(handle);
 	}
 
 	auto operator()(Args... args) -> void
 	{
-		std::vector<cb_t> to_visit;
+		visiting_++;
 
-		to_visit.reserve(cns_.size());
-
-		cns_.visit([&to_visit](const cn_record& record)
+		cns_.visit([args...](const cn_record& record)
 		{
-			// If something gets deleted during rcv::visit() and rcv::release() gets called, the
-			// release is deferred until after we finish iterating over each element. Then the
-			// released elements will finally be destructed.
-
-			// This signal object might be managed by a shared pointer or something, and one of
-			// these function objects might hold the last remaining reference to us! So if that
-			// function object gets destructed at the end of rcv::visit(), we would be deleted
-			// along with it!!!
-
-			// So instead of just calling these callbacks directly here, we push a copy of each
-			// of them onto this vector and process them there just in case. This way there will
-			// always be at least one remaining reference to us if we are ultimatley being
-			// managed somewhere up the stack by some reference counting mechanism.
-			to_visit.push_back(record.cb);
+			record.cb(args...);
 		});
 
-		for (const auto& cb : to_visit)
-		{
-			cb(args...);
-		}
+		if (--visiting_ > 0) return;
+
+		do_deferred_disconnections();
 	}
 
 private:
+
+	auto do_deferred_disconnections() -> void
+	{
+		if (deferred_disconnect_.empty()) return;
+
+		// We take a copy of the entire connection vector here, to handle
+		// a corner case.
+
+		// This signal object might ultimately be managed by some kind of
+		// reference counting mechanism, e.g. perhaps it is a member of an
+		// object being managed by a shared_ptr.
+
+		// It is possible that the last remaining reference to the managed
+		// object is owned by one of the callbacks!
+
+		// Therefore when the slot is disconnected and the function object
+		// is destroyed, we would be destroyed along with it, while we are
+		// in the middle of doing things!
+
+		// To prevent this, we make a copy of the connection vector so that
+		// by the end of the disconnect loop, we still have at least one
+		// reference to any reference counted objects owned by the
+		// callbacks.
+		const auto save_cns { cns_ };
+
+		while (!deferred_disconnect_.empty())
+		{
+			to_disconnect_ = deferred_disconnect_;
+			deferred_disconnect_.clear();
+
+			for (const auto handle : to_disconnect_)
+			{
+				cns_.release(handle);
+			}
+		}
+	}
 
 	auto update(rcv_handle handle, detail::cn_body* body) -> void override
 	{
@@ -138,6 +168,15 @@ private:
 	};
 
 	rcv<cn_record> cns_;
+
+	// >0 while visiting callbacks
+	int visiting_{0};
+
+	// disconnect() might be called while visiting,
+	// so push the handle onto here to disconnect
+	// it later
+	std::vector<rcv_handle> deferred_disconnect_;
+	std::vector<rcv_handle> to_disconnect_;
 };
 
 class store
