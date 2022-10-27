@@ -50,6 +50,8 @@ ptr->bar();
 
 `release()` destroys the item at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid. If `acquire()` is called later, the object might be constructed at that newly opened cell, and the handle would become valid again.
 
+Calling `release()` while visiting is ok. The release will be deferred until visiting is finished. Calling `release()` while releasing (i.e. in the destructor of an item being released) is also ok.
+
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
 
