@@ -33,6 +33,8 @@ public:
 	rcv();
 	rcv(const rcv& rhs);
 	rcv(rcv&& rhs);
+	auto capacity() const -> size_t;
+	auto size() const -> size_t;
 	auto reserve(size_t size) -> void;
 	template <typename... ConstructorArgs>
 	auto acquire(ConstructorArgs... constructor_args) -> handle_t;
