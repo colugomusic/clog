@@ -44,7 +44,6 @@ rsv_handle item = items.acquire(/*constructor arguments*/);
 // whatever you want with it
 items.get(item)->bar();
 *items.get(item) = thing{};
-*items.get(item) = foo();
 thing* ptr = items.get(item);
 ptr->bar();
 ```
