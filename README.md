@@ -24,10 +24,11 @@ Reusable Cell Vector
 It's a vector of T which can only grow.
 
 - T must be copy or move constructible.
-- You can't choose where in the vector new items are added.
-- Removing existing items from anywhere in the vector is very fast.
-- Iterating over the vector is very fast.
-- Items may become fragmented, but only within a single contiguous block of memory.
+- You can't choose where in the vector new elements are inserted.
+- Inserting new elements is fast.
+- Removing existing elements from anywhere in the vector is very fast.
+- Iterating over the elements is very fast.
+- Elements may become fragmented, but only within a single contiguous block of memory.
 - The `reserve()` method does *not* work by inserting default-initialized elements in the empty cells. The memory will be reserved but no actual objects will be constructed there. A cell is empty until a call to `acquire()` constructs an element there.
 
 You can iterate over the elements with visit(). The order of the elements in the vector is not guaranteed, e.g.
