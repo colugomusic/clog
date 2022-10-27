@@ -26,7 +26,13 @@ struct rcv_buffer
 public:
 
 	rcv_buffer() = default;
-	rcv_buffer(rcv_buffer&& rhs) noexcept = default;
+
+	rcv_buffer(rcv_buffer&& rhs) noexcept
+		: buffer_{rhs.buffer_}
+		, buffer_size_{rhs.buffer_size_}
+	{
+		rhs.buffer_size_ = 0;
+	}
 
 	rcv_buffer(const rcv_buffer& rhs)
 		: buffer_size_{rhs.buffer_size_}
@@ -194,11 +200,6 @@ public:
 
 	~rcv()
 	{
-		// Destroy any elements that were
-		// already defer-released
-		do_deferred_release();
-
-		// Destroy remaining elements
 		deferred_release_ = current_;
 		do_deferred_release();
 	}
@@ -247,11 +248,6 @@ public:
 	template <typename Visitor>
 	auto visit(Visitor visitor) -> void
 	{
-		if (visiting_ == 0)
-		{
-			do_deferred_release();
-		}
-
 		visiting_++;
 
 		to_visit_ = current_;
@@ -261,7 +257,12 @@ public:
 			visitor(buffer_[index]);
 		}
 
-		visiting_--;
+		if (--visiting_ > 0)
+		{
+			return;
+		}
+
+		do_deferred_release();
 	}
 
 private:
