@@ -186,7 +186,7 @@ public:
 		}
 	}
 
-	auto active_cells() const -> std::vector<size_t>
+	auto active_handles() const -> std::vector<handle_t>
 	{
 		return current_;
 	}

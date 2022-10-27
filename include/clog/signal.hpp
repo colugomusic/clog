@@ -71,7 +71,7 @@ public:
 		});
 
 		do_deferred_disconnections();
-		deferred_disconnect_ = cns_.active_cells();
+		deferred_disconnect_ = cns_.active_handles();
 		do_deferred_disconnections();
 	}
 

@@ -33,7 +33,7 @@ public:
 	rcv();
 	rcv(const rcv& rhs);
 	rcv(rcv&& rhs);
-	auto active_cells() const -> std::vector<size_t>;
+	auto active_handles() const -> std::vector<handle_t>;
 	auto capacity() const -> size_t;
 	auto reserve(size_t size) -> void;
 	auto size() const -> size_t;
