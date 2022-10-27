@@ -33,9 +33,10 @@ public:
 	rcv();
 	rcv(const rcv& rhs);
 	rcv(rcv&& rhs);
+	auto active_cells() const -> std::vector<size_t>;
 	auto capacity() const -> size_t;
-	auto size() const -> size_t;
 	auto reserve(size_t size) -> void;
+	auto size() const -> size_t;
 	template <typename... ConstructorArgs>
 	auto acquire(ConstructorArgs... constructor_args) -> handle_t;
 	auto release(handle_t index) -> void;
