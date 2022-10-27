@@ -1,6 +1,6 @@
 # clog
 
-spaghetti code spider web object oriented hell scape. all software is garbage and so are you
+Header-only libraries.
 
 ## Requirements
 - c++17
