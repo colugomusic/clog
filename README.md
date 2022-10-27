@@ -30,7 +30,7 @@ b = v.acquire();
 v.visit([](auto item) { /* b might be visited before a */ });
 ```
 
-Adding or removing items from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied, but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
+Adding or removing items from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the new vector. Erasing an element from the middle also doesn't invalidate any indices (the slot just opens up at that position.)
 
 Therefore the index of an item can be used as a handle to retrieve it from the vector. The handle will never be invalidated until `release(handle)` is called.
 
