@@ -6,73 +6,66 @@
 namespace clog {
 namespace detail {
 
-template<typename T, typename AlignAs>
-class rcv_allocator
+template <typename AlignAs>
+[[nodiscard]] static inline auto allocate(std::size_t n) -> uint8_t*
 {
-private:
-	static_assert (alignof(AlignAs) >= alignof(T));
-	static std::align_val_t constexpr ALIGNMENT{ alignof(AlignAs) };
+	static constexpr std::align_val_t ALIGNMENT{ alignof(AlignAs) };
+	return reinterpret_cast<uint8_t*>(::operator new(n, ALIGNMENT));
+}
 
-public:
-	using value_type = T;
-	rcv_allocator() noexcept {}
-	template<typename U> rcv_allocator(rcv_allocator<U, AlignAs> const&) noexcept {}
-
-	[[nodiscard]] auto allocate(std::size_t n) -> T*
-	{
-		if (n > std::numeric_limits<std::size_t>::max() / sizeof(T))
-		{
-			throw std::bad_array_new_length();
-		}
-
-		const auto bytes_to_allocate { n * sizeof(T) };
-
-		return reinterpret_cast<T*>(::operator new(bytes_to_allocate, ALIGNMENT));
-	}
-
-	auto deallocate(T* ptr, [[maybe_unused]] std::size_t n) -> void
-	{
-		::operator delete(ptr, ALIGNMENT);
-	}
-};
+template <typename AlignAs>
+static inline auto deallocate(uint8_t* ptr) -> void
+{
+	static constexpr std::align_val_t ALIGNMENT{ alignof(AlignAs) };
+	::operator delete(ptr, ALIGNMENT);
+}
 
 template <typename T>
 struct rcv_buffer
 {
-private:
-
-	using buffer_t = std::vector<uint8_t, rcv_allocator<uint8_t, T>>;
-
 public:
 
 	rcv_buffer() = default;
 	rcv_buffer(rcv_buffer&& rhs) noexcept = default;
 
 	rcv_buffer(const rcv_buffer& rhs)
-		: buffer_{ rhs.buffer_.size() }
+		: buffer_size_{rhs.buffer_size_}
 	{
+		if (buffer_size_ == 0) return;
+
+		buffer_ = allocate<T>(buffer_size_);
+
 		if constexpr (std::is_trivially_copy_constructible_v<T>)
 		{
-			memcpy(buffer_.data(), rhs.buffer_.data(), rhs.buffer_.size());
+			memcpy(buffer_, rhs.buffer_, buffer_size_);
 		}
 		else
 		{
-			for (size_t i = 0; i < this->size(); i++)
+			for (size_t i = 0; i < size(); i++)
 			{
 				auto item { rhs.get_ptr_to_item(i) };
 
-				construct_at(&buffer_, i, *item);
+				construct_at(buffer_, i, *item);
 
 				item->~T();
 			}
 		}
 	}
 
+	~rcv_buffer()
+	{
+		if (buffer_size_ == 0) return;
+
+		assert (buffer_size_ % sizeof(T) == 0);
+
+		deallocate<T>(buffer_);
+	}
+
 	template <typename... ConstructorArgs>
 	auto construct_at(size_t index, ConstructorArgs&&... constructor_args) -> T&
 	{
 		assert (index < size());
-		return construct_at(&buffer_, index, std::forward<ConstructorArgs>(constructor_args)...);
+		return construct_at(buffer_, index, std::forward<ConstructorArgs>(constructor_args)...);
 	}
 
 	auto destruct_at(size_t index) -> void
@@ -97,11 +90,12 @@ public:
 	{
 		if (size <= this->size()) return;
 
-		buffer_t new_buffer(size * sizeof(T));
+		const auto new_buffer_size { size * sizeof(T) };
+		const auto new_buffer { allocate<T>(new_buffer_size) };
 
 		if constexpr (std::is_trivially_copy_constructible_v<T>)
 		{
-			memcpy(new_buffer.data(), buffer_.data(), buffer_.size());
+			memcpy(new_buffer, buffer_, buffer_size_);
 		}
 		else
 		{
@@ -111,29 +105,31 @@ public:
 
 				if constexpr (std::is_nothrow_move_constructible_v<T>)
 				{
-					construct_at(&new_buffer, i, std::move(*item));
+					construct_at(new_buffer, i, std::move(*item));
 				}
 				else
 				{
-					construct_at(&new_buffer, i, *item);
+					construct_at(new_buffer, i, *item);
 				}
 
 				item->~T();
 			}
 		}
 
-		buffer_ = std::move(new_buffer);
+		deallocate<T>(buffer_);
+		buffer_ = new_buffer;
+		buffer_size_ = new_buffer_size;
 	}
 
 	auto size() const -> size_t
 	{
-		return buffer_.size() / sizeof(T);
+		return buffer_size_ / sizeof(T);
 	}
 
 private:
 
 	template <typename... ConstructorArgs>
-	static auto construct_at(buffer_t* buffer, size_t index, ConstructorArgs&&... constructor_args) -> T&
+	static auto construct_at(uint8_t* buffer, size_t index, ConstructorArgs&&... constructor_args) -> T&
 	{
 		const auto memory { get_memory_for_cell(buffer, index) };
 		const auto ptr { new(memory) T(std::forward<ConstructorArgs>(constructor_args)...) };
@@ -141,21 +137,21 @@ private:
 		return *ptr;
 	}
 
-	static auto get_memory_for_cell(buffer_t* buffer, size_t index) -> uint8_t*
+	static auto get_memory_for_cell(uint8_t* buffer, size_t index) -> uint8_t*
 	{
-		return buffer->data() + (index * sizeof(T));
+		return buffer + (index * sizeof(T));
 	}
 
 	auto get_memory_for_cell(size_t index) -> uint8_t*
 	{
 		assert (index < size());
-		return get_memory_for_cell(&buffer_, index);
+		return get_memory_for_cell(buffer_, index);
 	}
 
 	auto get_memory_for_cell(size_t index) const -> const uint8_t*
 	{
 		assert (index < size());
-		return get_memory_for_cell(&buffer_, index);
+		return get_memory_for_cell(buffer_, index);
 	}
 
 	auto get_ptr_to_item(size_t index) -> T*
@@ -168,7 +164,8 @@ private:
 		return reinterpret_cast<T*>(get_memory_for_cell(index));
 	}
 
-	buffer_t buffer_;
+	uint8_t* buffer_{};
+	size_t buffer_size_{0};
 };
 
 } // detail
@@ -194,6 +191,20 @@ public:
 	rcv() = default;
 	rcv(const rcv& rhs) = default;
 	rcv(rcv&& rhs) = default;
+
+	~rcv()
+	{
+		// Destroy any elements that were
+		// already defer-released
+		do_deferred_release();
+
+		// Destroy remaining elements
+		deferred_release_ = current_;
+		do_deferred_release();
+	}
+
+	auto capacity() const { return buffer_.size(); }
+	auto size() const { return current_.size(); }
 
 	auto reserve(size_t size) -> void
 	{
@@ -236,6 +247,11 @@ public:
 	template <typename Visitor>
 	auto visit(Visitor visitor) -> void
 	{
+		if (visiting_ == 0)
+		{
+			do_deferred_release();
+		}
+
 		visiting_++;
 
 		to_visit_ = current_;
@@ -245,11 +261,13 @@ public:
 			visitor(buffer_[index]);
 		}
 
-		if (--visiting_ > 0)
-		{
-			return;
-		}
+		visiting_--;
+	}
 
+private:
+
+	auto do_deferred_release() -> void
+	{
 		while (!deferred_release_.empty())
 		{
 			to_delete_ = deferred_release_;
@@ -264,8 +282,6 @@ public:
 			// stuff in it by now, so we loop
 		}
 	}
-
-private:
 
 	auto do_release(handle_t index) -> void
 	{
