@@ -51,6 +51,11 @@ public:
 
 	auto operator=(rcv_buffer&& rhs) -> rcv_buffer&
 	{
+		if (buffer_size_ > 0)
+		{
+			deallocate<T>(buffer_);
+		}
+
 		buffer_ = rhs.buffer_;
 		buffer_size_ = rhs.buffer_size_;
 		rhs.buffer_size_ = 0;
