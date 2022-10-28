@@ -229,6 +229,8 @@ public:
 
 	auto release(handle_t index) -> void
 	{
+		assert (!visiting_);
+
 		current_.erase(index);
 		buffer_.destruct_at(index);
 
