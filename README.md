@@ -21,7 +21,7 @@ Requires: [vectors.hpp](include/clog/vectors.hpp)
 
 Reusable Cell Vector
 
-It's a vector of T which can only grow.
+It's a vector of T which can only grow. Elements are constructed in-place using `acquire(/*constructor args*/)` and you get back a handle which you can use to access the element. The handle is just an index into the array, but it will never become invalidated until you call `release(handle)`. Even if you add more elements and more storage has to be allocated, the handle will still be valid, because the logical positions of the existing elements doesn't change.
 
 The public interface is:
 ```c++
@@ -64,13 +64,11 @@ v.visit([](auto item) { /* b might be visited before a */ });
 ```
 It's ok to call `acquire()` or `release()` while visiting. It's not ok to destroy the RCV itself while visiting.
 
-Adding or removing elements from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the vector.
+Adding or removing elements from the vector doesn't invalidate indices. Everything "logically" stays where it is in the vector, e.g. an element at index 3 will always be at index 3 even if more storage needs to be allocated. If the vector has to grow then the objects may be copied. If `is_nothrow_move_constructible<T>` then they will be moved instead.
 
-Erasing an element from the middle also doesn't invalidate the indices of the other elements. A slot just opens up at the released position.
+Erasing an element from the middle also doesn't invalidate the handles of the other elements. A slot just opens up at the released position.
 
-Therefore the index of an element can be used as a handle to retrieve it from the vector. The handle will never be invalidated until `release(handle)` is called.
-
-`acquire()` returns a handle to a new element. retrieve it using `get()`.
+`acquire(/*constructor arguments*/)` constructs an element in-place and returns a handle to access it. Retrieve it using `get(handle)`.
 
 ```c++
 rsv<thing> items;
