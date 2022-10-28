@@ -41,8 +41,6 @@ public:
 	auto acquire(ConstructorArgs... constructor_args) -> handle_t;
 	auto release(handle_t index) -> void;
 	auto get(handle_t index) -> T*;
-	template <typename Visitor>
-	auto visit(Visitor visitor) -> void;
 };
 ```
 
@@ -54,15 +52,18 @@ public:
 - Elements may become fragmented, but only within a single contiguous block of memory.
 - The `reserve()` method does *not* work by inserting default-initialized elements in the empty cells. The memory will be reserved but no actual objects will be constructed there. A cell is empty until a call to `acquire()` constructs an element there.
 
-You can iterate over the elements with visit(). The order of the elements in the vector is not guaranteed, e.g.
+When iterating over the elements their order is not guaranteed, e.g.
 
 ```c++
 a = v.acquire();
 b = v.acquire();
 
-v.visit([](auto item) { /* b might be visited before a */ });
+for (auto handle : v.active_handles())
+{
+    // b might be visited before a
+}
 ```
-Calling `acquire()` while visiting is ok (only the cells that were active when `visit()` was called will be visited.) But calling `release()` while visiting is not ok so you should defer releasing until after you finish visiting somehow ([signal.hpp](include/clog/signal.hpp) does this.)
+Calling `acquire()` while iterating like this is ok (only the cells returned by `active_handles()` will be visited.) But calling `release()` while visiting is not ok so you should defer releasing until after you finish visiting somehow ([signal.hpp](include/clog/signal.hpp) does this.)
 
 Adding or removing elements from the vector doesn't invalidate indices. Everything "logically" stays where it is in the vector, e.g. an element at index 3 will always be at index 3 even if more storage needs to be allocated. If the vector has to grow then the objects may be copied. If `is_nothrow_move_constructible<T>` then they will be moved instead.
 
@@ -85,6 +86,10 @@ ptr->bar();
 `release()` destroys the element at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid.
 
 Note that the memory of the released cell is not freed, but the destructor will be run so there will be no object there anymore. If `acquire()` is called later, the new element might be constructed at that newly opened cell, and the handle pointing to that index would become valid again.
+
+### clog::unsafe_rcv<T>
+
+There is another class in `clog::` named `unsafe_rcv`. The only difference between `rcv` and `unsafe_rcv` is that `rcv::get()` will check that the given handle is valid and return `nullptr` if not. The expense of doing this is a binary search over a sorted list of known valid handles. In cases where you know your handles are always valid then you might as well use `unsafe_rcv`.
 
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)

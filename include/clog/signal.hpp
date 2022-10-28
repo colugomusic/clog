@@ -57,18 +57,22 @@ public:
 	signal(signal&& rhs) noexcept
 		: cns_{ std::move(rhs.cns_) }
 	{
-		cns_.visit([this](cn_record& record)
+		const auto handles { cns_.active_handles() };
+
+		for (const auto handle : handles)
 		{
-			record.body->signal = this;
-		});
+			cns_.get(handle)->body->signal = this;
+		}
 	}
 
 	~signal()
 	{
-		cns_.visit([](cn_record& record)
+		const auto handles { cns_.active_handles() };
+
+		for (const auto handle : handles)
 		{
-			record.body->signal = {};
-		});
+			cns_.get(handle)->body->signal = {};
+		}
 
 		do_deferred_disconnections();
 		deferred_disconnect_ = cns_.active_handles();
@@ -97,10 +101,12 @@ public:
 	{
 		visiting_++;
 
-		cns_.visit([args...](const cn_record& record)
+		const auto handles { cns_.active_handles() };
+
+		for (const auto handle : handles)
 		{
-			record.cb(args...);
-		});
+			cns_.get(handle)->cb(args...);
+		}
 
 		if (--visiting_ > 0 || deferred_disconnect_.empty()) return;
 
@@ -165,7 +171,7 @@ private:
 		cb_t cb;
 	};
 
-	rcv<cn_record> cns_;
+	unsafe_rcv<cn_record> cns_;
 
 	// >0 while visiting callbacks
 	int visiting_{0};

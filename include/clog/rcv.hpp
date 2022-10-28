@@ -155,16 +155,16 @@ struct rcv_default_resize_strategy
 using rcv_handle = size_t;
 
 template <typename T, typename ResizeStrategy = rcv_default_resize_strategy>
-class rcv
+class unsafe_rcv
 {
 public:
 
 	using handle_t = rcv_handle;
 
-	rcv() = default;
-	rcv(rcv&& rhs) = default;
+	unsafe_rcv() = default;
+	unsafe_rcv(unsafe_rcv&& rhs) = default;
 
-	rcv(const rcv& rhs)
+	unsafe_rcv(const unsafe_rcv& rhs)
 		: next_{rhs.next_}
 		, buffer_{rhs.buffer_.size()}
 		, current_{rhs.current_}
@@ -181,10 +181,8 @@ public:
 		}
 	}
 
-	~rcv()
+	~unsafe_rcv()
 	{
-		assert (!visiting_);
-
 		for (const auto index : current_)
 		{
 			buffer_.destruct_at(index);
@@ -229,8 +227,6 @@ public:
 
 	auto release(handle_t index) -> void
 	{
-		assert (!visiting_);
-
 		current_.erase(index);
 		buffer_.destruct_at(index);
 
@@ -246,36 +242,7 @@ public:
 		return &buffer_[index];
 	}
 
-	template <typename Visitor>
-	auto visit(Visitor visitor) -> void
-	{
-		visit_begin();
-
-		to_visit_ = current_;
-
-		for (const auto index : to_visit_)
-		{
-			visitor(buffer_[index]);
-		}
-
-		visit_finish();
-	}
-
 private:
-
-	auto visit_begin()
-	{
-#		if _DEBUG
-		visiting_ = true;
-#		endif
-	}
-
-	auto visit_finish()
-	{
-#		if _DEBUG
-		visiting_ = false;
-#		endif
-	}
 
 	// Find the next available empty cell. If there are
 	// no available cells, return buffer_.size().
@@ -344,16 +311,25 @@ private:
 	detail::rcv_buffer<T> buffer_{};
 
 	// List of currently occupied indices
-	// This is only used for iterating over the occupied cells
 	vectors::sorted::unique::checked::vector<size_t> current_;
+};
 
-	// Handles currently being visited
-	std::vector<size_t> to_visit_;
+template <typename T, typename ResizeStrategy = rcv_default_resize_strategy>
+class rcv : public unsafe_rcv<T, ResizeStrategy>
+{
+public:
 
-#	if _DEBUG
-	// true while visiting, for assertions
-	bool visiting_{false};
-#	endif
+	using handle_t = unsafe_rcv::handle_t;
+
+	auto get(handle_t index) -> T*
+	{
+		if (!clog::vectors::sorted::contains(current_, index))
+		{
+			return nullptr;
+		}
+
+		return unsafe_rcv<T>::get(index);
+	}
 };
 
 } // clog
