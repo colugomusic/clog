@@ -64,7 +64,7 @@ v.visit([](auto item) { /* b might be visited before a */ });
 ```
 Destroying the RCV itself while in the middle of visiting it is not valid.
 
-Adding or removing elements from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the new vector.
+Adding or removing elements from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the vector.
 
 Erasing an element from the middle also doesn't invalidate the indices of the other elements. A slot just opens up at the released position.
 
