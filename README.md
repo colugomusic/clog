@@ -12,7 +12,7 @@ Header-only libraries.
 4. [property.hpp](#propertyhpp) - set/get property library
 5. [expire.hpp](#expirehpp) - dying object notifications
 6. [idle.hpp](#idlehpp) - object task queues
-7. [cache.hpp](include/clog/cache.hpp) - a single cached value
+7. [cache.hpp](#cachehpp) - a single cached value
 
 ## rcv.hpp
 [include/clog/rcv.hpp](include/clog/rcv.hpp)
@@ -452,5 +452,39 @@ struct alternative
     tasks << task::another_task;
   }
 };
+
+```
+## cache.hpp
+[include/clog/cache.hpp](include/clog/cache.hpp)
+
+A value, a dirty flag and a function object to update the value. I write a version of this in all my projects so here it is.
+
+```c++
+clog::cached<string> text;
+
+text = []()
+{
+	return "generated text";
+};
+
+// The dirty flag is initially set
+
+cout << *text << "\n"; // Lambda is called and the value is cached. Dirty flag is cleared
+cout << *text << "\n"; // Lambda is not called
+cout << *text << "\n"; // Lambda is not called
+
+text.set_dirty();
+
+cout << *text << "\n"; // Lambda is called and the value is cached. Dirty flag is cleared
+cout << *text << "\n"; // Lambda is not called
+
+text = "you can directly set the value too";
+
+cout << *text << "\n"; // Lambda is not called
+
+text.set_dirty();
+text = "directly setting the value clears the dirty flag";
+
+cout << *text << "\n"; // Lambda is not called
 
 ```
