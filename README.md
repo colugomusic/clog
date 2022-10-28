@@ -87,7 +87,7 @@ ptr->bar();
 
 Note that the memory of the released cell is not freed, but the destructor will be run so there will be no object there anymore. If `acquire()` is called later, the new element might be constructed at that newly opened cell, and the handle pointing to that index would become valid again.
 
-### clog::unsafe_rcv<T>
+### `clog::unsafe_rcv<T>`
 
 There is another class in `clog::` named `unsafe_rcv`. The only difference between `rcv` and `unsafe_rcv` is that `rcv::get()` will check that the given handle is valid and return `nullptr` if not. The expense of doing this is a binary search over a sorted list of known valid handles. In cases where you know your handles are always valid then you might as well use `unsafe_rcv`.
 
