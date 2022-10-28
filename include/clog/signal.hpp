@@ -93,17 +93,6 @@ public:
 		return connect(std::forward<Slot>(slot));
 	}
 
-	auto disconnect(rcv_handle handle) -> void override
-	{
-		if (visiting_ > 0)
-		{
-			deferred_disconnect_.push_back(handle);
-			return;
-		}
-
-		cns_.release(handle);
-	}
-
 	auto operator()(Args... args) -> void
 	{
 		visiting_++;
@@ -139,6 +128,17 @@ public:
 	}
 
 private:
+
+	auto disconnect(rcv_handle handle) -> void override
+	{
+		if (visiting_ > 0)
+		{
+			deferred_disconnect_.push_back(handle);
+			return;
+		}
+
+		cns_.release(handle);
+	}
 
 	auto do_deferred_disconnections() -> void
 	{
