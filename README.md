@@ -301,6 +301,8 @@ A type inheriting from `clog::attacher` can have expirable objects "attached" to
 
 When an object is attached, `update(clog::attach<T>)` is called. When an object is detached, `update(clog::detach<T>)` is called.
 
+T doesn't need to be a pointer type, but std::hash<T> needs to be defined.
+
 ```c++
 struct animal : public clog::expirable
 {
