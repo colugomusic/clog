@@ -113,16 +113,7 @@ public:
 			record.cb(args...);
 		});
 
-		if (--visiting_ > 0) return;
-
-		do_deferred_disconnections();
-	}
-
-private:
-
-	auto do_deferred_disconnections() -> void
-	{
-		if (deferred_disconnect_.empty()) return;
+		if (--visiting_ > 0 || deferred_disconnect_.empty()) return;
 
 		// We take a copy of the entire connection vector here, to handle
 		// a corner case.
@@ -144,6 +135,13 @@ private:
 		// callbacks.
 		const auto save_cns { cns_ };
 
+		do_deferred_disconnections();
+	}
+
+private:
+
+	auto do_deferred_disconnections() -> void
+	{
 		while (!deferred_disconnect_.empty())
 		{
 			to_disconnect_ = deferred_disconnect_;
