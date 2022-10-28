@@ -275,6 +275,13 @@ private:
 #		endif
 	}
 
+	// Find the next available empty cell. If there are
+	// no available cells, return buffer_.size().
+	//
+	// This algorithm isn't optimal (it's not necessary to
+	// call lower_bound over and over like that.)
+	//
+	// I have a headache though
 	auto next() -> size_t
 	{
 		namespace cvs = clog::vectors::sorted;
