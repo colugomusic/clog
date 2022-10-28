@@ -312,15 +312,12 @@ struct house : public clog::attacher<house>
   unordered_set<animal*> animals;
   unordered_map<ID, clog::store> animal_connections;
   
+  // Called when an animal is attached
   auto update(clog::attach<animal*> a) -> void
   {
     animals.insert(a);
     
-    const auto on_age_changed = [a](int new_age)
-    {
-      cout << "the age of " << *a->name << " is " << new_age << "\n";
-      print_age_total();
-    };
+    const auto on_age_changed = [a](int new_age) { /* do something */ };
     
     auto& cns = animal_connections[a->id];
     
@@ -329,22 +326,11 @@ struct house : public clog::attacher<house>
     on_age_changed(a->age);
   }
   
+  // Will be called when the animal expires
   auto update(clog::detach<animal*> a) -> void
   {
     animals.erase(a);
     animal_connections.erase(a->id);
-  }
-  
-  auto print_age_total() const -> void
-  {
-      cout << "the combined age of all animals is now " << calculate_age_total() << "\n";
-  }
-  
-  auto calculate_age_total() const -> int
-  {
-    int total{0};
-    for (auto animal : animals) total += *animal->age;
-    return total;
   }
 };
 
@@ -354,12 +340,17 @@ house h;
 {
   animal a;
   animal b;
+  animal c;
 
   // Attach objects. Calls house::update(clog::attach<animal*>)
   h << &a;
   h << &b;
+  h << &c;
   
-  // house::update(clog::detach<animal*>) will be called twice at the end of this scope
+  // Manually detach an object
+  h >> &c;
+  
+  // house::update(clog::detach<animal*>) will be called twice at the end of this scope (for a and b)
 } 
 ```
 
