@@ -140,11 +140,14 @@ auto overwrite(std::vector<T>* vector, T value, Compare compare = Compare{})
 namespace checked {
 
 // Insert the value into the sorted vector.
-// Asserts that the value did not already exist.
 // Precondition: The vector is sorted.
+// Precondition: The value does not already exist.
+// Postcondition: The value was inserted.
 template <typename T, typename Compare = std::less<T>>
 auto insert(std::vector<T>* vector, T value, Compare compare = Compare{})
 {
+	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+
 	const auto [pos, success] = unique::insert(vector, std::move(value), compare);
 
 	assert (success);
@@ -153,11 +156,14 @@ auto insert(std::vector<T>* vector, T value, Compare compare = Compare{})
 }
 
 // Erase the value from the sorted vector.
-// Asserts that exactly one element was removed.
 // Precondition: The vector is sorted.
+// Precondition: The value exists.
+// Postcondition: Exactly one value was inserted.
 template <typename T, typename Compare = std::less<T>>
 auto erase(std::vector<T>* vector, const T& value, Compare compare = Compare{}) -> void
 {
+	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+
 	const auto result = sorted::erase_all(vector, value, compare);
 
 	assert (result == 1);
