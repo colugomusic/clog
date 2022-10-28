@@ -62,7 +62,7 @@ b = v.acquire();
 
 v.visit([](auto item) { /* b might be visited before a */ });
 ```
-Destroying the RCV itself while in the middle of visiting it is not valid.
+It's ok to call `acquire()` or `release()` while visiting. It's not ok to destroy the RCV itself while visiting.
 
 Adding or removing elements from the vector doesn't invalidate indices. Everything logically stays where it is. If the vector has to grow then the objects may be copied (or moved if `is_nothrow_move_constructible<T>`), but they will still reside at the same indices in the vector.
 
