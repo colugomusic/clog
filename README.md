@@ -88,8 +88,6 @@ ptr->bar();
 
 Note that the memory of the released cell is not freed, but the destructor will be run so there will be no object there anymore. If `acquire()` is called later, the new element might be constructed at that newly opened cell, and the handle pointing to that index would become valid again.
 
-Calling `release()` while visiting is ok. The release will be deferred until visiting is finished. Calling `release()` while releasing (i.e. in the destructor of an item being released) is also ok.
-
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
 
