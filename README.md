@@ -131,8 +131,8 @@ struct receiver
 {
   // If these connections are active when receiver is
   // destructed then the slots will be automatically
-  // disconnected. It's ok if the connected signal is
-  // destroyed first.
+  // disconnected. It's ok if the connected signals
+  // are destroyed first.
   clog::cn hello_connection;
   clog::cn goodbye_connection;
   clog::cn trigger_connection;
