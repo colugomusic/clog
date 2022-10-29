@@ -21,7 +21,7 @@ Requires: [vectors.hpp](include/clog/vectors.hpp)
 
 Reusable Cell Vector
 
-It's a vector of T which can only grow. Elements are constructed in-place using `acquire(/*constructor args*/)` and you get back a handle which you can use to access the element. The handle is just an index into the array, but it will never become invalidated until you call `release(handle)`. Even if you add more elements and more storage has to be allocated, the handle will still be valid, because the logical positions of the existing elements doesn't change.
+It's a vector of T which can only grow. Elements are constructed in-place using `acquire(/*constructor args*/)` and you get back a handle which you can use to access the element. The handle is just an index into the array, but it will never become invalidated until you call `release(handle)`. Even if you erase elements from the middle of the vector, the handle will still be valid, because the logical positions of the existing elements doesn't change.
 
 The public interface is:
 ```c++
