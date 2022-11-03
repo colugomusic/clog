@@ -7,14 +7,14 @@ namespace clog {
 namespace detail {
 
 template <typename AlignAs>
-[[nodiscard]] static inline auto allocate(std::size_t n) -> uint8_t*
+[[nodiscard]] static inline auto allocate(std::size_t n) -> std::byte*
 {
 	static constexpr std::align_val_t ALIGNMENT{ alignof(AlignAs) };
-	return reinterpret_cast<uint8_t*>(::operator new(n, ALIGNMENT));
+	return reinterpret_cast<std::byte*>(::operator new(n, ALIGNMENT));
 }
 
 template <typename AlignAs>
-static inline auto deallocate(uint8_t* ptr) -> void
+static inline auto deallocate(std::byte* ptr) -> void
 {
 	static constexpr std::align_val_t ALIGNMENT{ alignof(AlignAs) };
 	::operator delete(ptr, ALIGNMENT);
@@ -101,7 +101,7 @@ public:
 private:
 
 	template <typename... ConstructorArgs>
-	static auto construct_at(uint8_t* buffer, size_t index, ConstructorArgs&&... constructor_args) -> T&
+	static auto construct_at(std::byte* buffer, size_t index, ConstructorArgs&&... constructor_args) -> T&
 	{
 		const auto memory { get_memory_for_cell(buffer, index) };
 		const auto ptr { new(memory) T(std::forward<ConstructorArgs>(constructor_args)...) };
@@ -109,18 +109,18 @@ private:
 		return *ptr;
 	}
 
-	static auto get_memory_for_cell(uint8_t* buffer, size_t index) -> uint8_t*
+	static auto get_memory_for_cell(std::byte* buffer, size_t index) -> std::byte*
 	{
 		return buffer + (index * sizeof(T));
 	}
 
-	auto get_memory_for_cell(size_t index) -> uint8_t*
+	auto get_memory_for_cell(size_t index) -> std::byte*
 	{
 		assert (index < size());
 		return get_memory_for_cell(buffer_, index);
 	}
 
-	auto get_memory_for_cell(size_t index) const -> const uint8_t*
+	auto get_memory_for_cell(size_t index) const -> const std::byte*
 	{
 		assert (index < size());
 		return get_memory_for_cell(buffer_, index);
@@ -137,7 +137,7 @@ private:
 	}
 
 	size_t buffer_size_{0};
-	uint8_t* buffer_{};
+	std::byte* buffer_{};
 };
 
 } // detail
