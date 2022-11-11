@@ -199,4 +199,8 @@ struct vector : public std::vector<T>
 } // unique
 } // sorted
 } // vectors
+
+namespace vsu = vectors::sorted::unique;
+namespace vsuc = vectors::sorted::unique::checked;
+
 } // clog
