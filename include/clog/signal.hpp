@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <unordered_set>
 #include "rcv.hpp"
 
 namespace clog {
@@ -75,7 +76,12 @@ public:
 		}
 
 		do_deferred_disconnections();
-		deferred_disconnect_ = cns_.active_handles();
+
+		for (const auto handle : handles)
+		{
+			deferred_disconnect_.insert(handle);
+		}
+
 		do_deferred_disconnections();
 	}
 
@@ -105,7 +111,10 @@ public:
 
 		for (const auto handle : handles)
 		{
-			cns_.get(handle)->cb(args...);
+			if (deferred_disconnect_.find(handle) == std::cend(deferred_disconnect_))
+			{
+				cns_.get(handle)->cb(args...);
+			}
 		}
 
 		if (--visiting_ > 0 || deferred_disconnect_.empty()) return;
@@ -139,7 +148,7 @@ private:
 	{
 		if (visiting_ > 0)
 		{
-			deferred_disconnect_.push_back(handle);
+			deferred_disconnect_.insert(handle);
 			return;
 		}
 
@@ -179,8 +188,8 @@ private:
 	// disconnect() might be called while visiting,
 	// so push the handle onto here to disconnect
 	// it later
-	std::vector<rcv_handle> deferred_disconnect_;
-	std::vector<rcv_handle> to_disconnect_;
+	std::unordered_set<rcv_handle> deferred_disconnect_;
+	std::unordered_set<rcv_handle> to_disconnect_;
 };
 
 class store
