@@ -189,4 +189,54 @@ template <typename T> using property = setget<T>;
 template <typename T> using proxy_property = proxy_get<T>;
 template <typename T> using readonly_property = get<T>;
 
+//
+// A value which simply calls a function when it changes
+//
+template <typename T>
+struct dumb_property
+{
+	using setter_t = std::function<void(T, T)>;
+
+	dumb_property() : dumb_property{T{}, setter_t{}} {}
+	dumb_property(T initial_value) : dumb_property{initial_value, setter_t{}} {}
+	dumb_property(setter_t set) : dumb_property{T{}, set} {}
+	dumb_property(T initial_value, setter_t set) : value_{initial_value}, set_{set} {}
+
+	dumb_property(dumb_property<T>&& rhs) noexcept = default;
+	auto operator=(dumb_property<T>&& rhs) noexcept -> dumb_property<T>& = default;
+	dumb_property(const dumb_property<T>& rhs) = default;
+	auto operator=(const dumb_property<T>& rhs) -> dumb_property<T>& = default;
+
+	operator T() const { return value_; }
+	auto operator*() const { return value_; }
+	auto operator->() const { return &value_; }
+	auto get() const { return value_; }
+
+	auto set(T new_value, bool notify = true) -> dumb_property<T>&
+	{
+		const auto old_value{ value_ };
+
+		if (old_value == new_value) return *this;
+
+		value_ = new_value;
+
+		if (notify && set_)
+		{
+			set_(old_value, new_value);
+		}
+
+		return *this;
+	}
+
+	auto operator=(T new_value) -> dumb_property<T>&
+	{
+		return set(new_value);
+	}
+
+private:
+
+	T value_{};
+	setter_t set_;
+};
+
 } // clog
