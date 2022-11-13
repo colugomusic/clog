@@ -283,7 +283,7 @@ private:
 
 		if constexpr (std::is_trivially_copy_constructible_v<T>)
 		{
-			new_buffer_.set(buffer_);
+			new_buffer.set(buffer_);
 			buffer_ = std::move(new_buffer);
 			return;
 		}
