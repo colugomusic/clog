@@ -310,6 +310,8 @@ private:
 	size_t next_{};
 	detail::rcv_buffer<T> buffer_{};
 
+protected:
+	
 	// List of currently occupied indices
 	vectors::sorted::unique::checked::vector<size_t> current_;
 };
