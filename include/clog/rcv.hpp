@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstring>
 #include <new>
 #include "vectors.hpp"
 
@@ -283,7 +284,7 @@ private:
 
 		if constexpr (std::is_trivially_copy_constructible_v<T>)
 		{
-			new_buffer_.set(buffer_);
+			new_buffer.set(buffer_);
 			buffer_ = std::move(new_buffer);
 			return;
 		}
@@ -310,6 +311,8 @@ private:
 	size_t next_{};
 	detail::rcv_buffer<T> buffer_{};
 
+protected:
+	
 	// List of currently occupied indices
 	vectors::sorted::unique::checked::vector<size_t> current_;
 };
@@ -319,16 +322,16 @@ class rcv : public unsafe_rcv<T, ResizeStrategy>
 {
 public:
 
-	using handle_t = unsafe_rcv::handle_t;
+	using handle_t = typename unsafe_rcv<T, ResizeStrategy>::handle_t;
 
 	auto get(handle_t index) -> T*
 	{
-		if (!clog::vectors::sorted::contains(current_, index))
+		if (!clog::vectors::sorted::contains(unsafe_rcv<T, ResizeStrategy>::current_, index))
 		{
 			return nullptr;
 		}
 
-		return unsafe_rcv<T>::get(index);
+		return unsafe_rcv<T, ResizeStrategy>::get(index);
 	}
 };
 
