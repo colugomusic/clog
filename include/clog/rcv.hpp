@@ -319,7 +319,7 @@ class rcv : public unsafe_rcv<T, ResizeStrategy>
 {
 public:
 
-	using handle_t = unsafe_rcv<T, ResizeStrategy>::handle_t;
+	using handle_t = typename unsafe_rcv<T, ResizeStrategy>::handle_t;
 
 	auto get(handle_t index) -> T*
 	{
