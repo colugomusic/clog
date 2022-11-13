@@ -325,7 +325,7 @@ public:
 
 	auto get(handle_t index) -> T*
 	{
-		if (!clog::vectors::sorted::contains(current_, index))
+		if (!clog::vectors::sorted::contains(unsafe_rcv<T, ResizeStrategy>::current_, index))
 		{
 			return nullptr;
 		}
