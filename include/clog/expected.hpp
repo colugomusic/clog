@@ -13,16 +13,47 @@ struct expected
 	auto operator=(const expected& rhs) -> expected& = default;
 	auto operator=(expected&& rhs) noexcept -> expected& = default;
 
-	template <typename T>
-	expected(T&& initial_value)
-		: var_{std::forward<T>(initial_value)}
+	expected(const Value& initial_value)
+		: var_{initial_value}
 	{
 	}
 
-	template <typename T>
-	auto operator=(T&& value)
+	expected(Value&& initial_value)
+		: var_{std::move(initial_value)}
 	{
-		var_ = std::forward<T>(value);
+	}
+
+	expected(const Error& error)
+		: var_{error}
+	{
+	}
+
+	expected(Error&& error)
+		: var_{std::move(error)}
+	{
+	}
+
+	auto operator=(const Value& value)
+	{
+		var_ = value;
+		return *this;
+	}
+
+	auto operator=(Value&& value)
+	{
+		var_ = std::move(value);
+		return *this;
+	}
+
+	auto operator=(const Error& error)
+	{
+		var_ = error;
+		return *this;
+	}
+
+	auto operator=(Error&& error)
+	{
+		var_ = std::move(error);
 		return *this;
 	}
 
