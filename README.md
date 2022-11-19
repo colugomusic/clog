@@ -13,6 +13,7 @@ Header-only libraries.
 5. [expire.hpp](#expirehpp) - dying object notifications
 6. [idle.hpp](#idlehpp) - object task queues
 7. [cache.hpp](#cachehpp) - a single cached value
+7. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
 
 ## rcv.hpp
 [include/clog/rcv.hpp](include/clog/rcv.hpp)
@@ -492,4 +493,99 @@ text = "directly setting the value clears the dirty flag";
 
 cout << *text << "\n"; // Lambda is not called
 
+```
+
+## tree.hpp
+[include/clog/tree.hpp](include/clog/tree.hpp)
+
+Requires: [vectors.hpp](include/clog/vectors.hpp)
+
+It's an acyclic, unbalanced, ordered tree.
+
+- The tree always has one root node.
+- Siblings are always sorted (`std::less<T>` by default).
+- Siblings are stored as contiguous blocks of memory, so it's good if your tree tends to be wider than it is deep.
+- Each node makes 1 additional allocation for a control block which allows node handles to remain valid even if the internal vectors need to be resized.
+
+![tree](https://github.com/colugomusic/clog/blob/master/doc/images/tree.png)
+
+The above tree could be produced like this:
+
+```c++
+struct Item
+{
+	std::string text;
+	int value; // Used for ordering
+	
+	auto operator(const Item& rhs) const -> bool
+	{
+		return value < rhs.value;
+	}
+};
+
+clog::tree<Item> tree{Item{"one", 1}};
+
+// Calling add() on the tree object always adds to the root node
+tree.add(Item{"two", 2}, Item{"five", 5}, Item{"nine", 9});
+
+// Nodes are only added if they don't already exist
+tree.add(Item{"two", 2}, Item{"five", 5}, Item{"ten", 10});
+tree.add(Item{"two", 2}, Item{"six", 6});
+tree.add(Item{"three", 3})
+
+// add() returns a handle to the deepest added node
+auto four = tree.add(Item{"one", 1}, Item{"four", 4});
+
+four->add(Item{"seven", 7}, Item{"eleven", 11});
+four->add(Item{"seven", 7}, Item{"twelve", 12});
+four->add(Item{"eight", 8});
+
+// To visit every node in the tree, you can pass
+// a function that always returns false to the
+// search methods.
+const auto print = [](const Item& item)
+{
+	std::cout << item.text << "\n";
+	return false;
+};
+
+tree.search_breadth_first(print);
+std::cout << "\n";
+
+tree.search_depth_first(print);
+std::cout << "\n";
+
+// Search for a node.
+const auto is_eleven = [](const Item& item)
+{
+	return item.value == 11;
+};
+
+// This returns a handle to the node.
+auto eleven = tree.search_depth_first(is_eleven);
+
+// false if the node was not found.
+assert (eleven);
+
+// Modifying the value directly. Note that the tree expects
+// siblings to be in an ordered state at all times, so
+// modifying the "text" member here is ok but modifying the
+// "value" member could potentially break the tree.
+eleven->get_value().text = "onze";
+
+// set_value() can be used to overwrite the entire value of
+// the node. This is safe because the node will always be
+// re-inserted in the correct place.
+eleven->set_value(Item{"thirteen", 13});
+
+// The "eleven" handle will remain valid even if more
+// siblings are added to the tree.
+eleven->get_parent()->add(Item{"fourteen", 14});
+
+// The only thing that invalidates a node handle is removing
+// the associated node from the tree.
+eleven->get_parent()->remove(eleven);
+
+// The "eleven" handle is now invalid. You can't use it at
+// all, not even operator bool.
 ```
