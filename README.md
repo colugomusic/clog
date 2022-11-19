@@ -505,6 +505,7 @@ It's an acyclic, unbalanced, ordered tree.
 - The tree always has one root node.
 - Siblings are always sorted (`std::less<T>` by default).
 - Siblings are stored as contiguous blocks of memory, so it's good if your tree tends to be wider than it is deep.
+- Duplicate siblings are not allowed, but duplicate elements are allowed if they don't share a parent.
 - Each node makes 1 additional allocation for a control block which allows node handles to remain valid even if the internal vectors need to be resized.
 - `T` must be moveable or copyable.
 
