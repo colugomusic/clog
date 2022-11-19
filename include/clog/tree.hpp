@@ -105,7 +105,7 @@ public:
 	{
 		node_type node(make_handle(), std::forward<U>(value), compare_);
 
-		const auto pos = vectors::sorted::unique::checked::insert(&children_, std::move(node), compare_);
+		const auto pos = vectors::sorted::unique::overwrite(&children_, std::move(node), compare_);
 
 		return pos->make_handle();
 	}
