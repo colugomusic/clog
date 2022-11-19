@@ -76,6 +76,7 @@ public:
 	using node_type = tree_node<T, Compare>;
 
 	auto get_parent() const { return parent_; }
+	auto& get_value() { return value_; }
 	auto& get_value() const { return value_; }
 	auto& get_children() const { return children_; }
 
@@ -255,9 +256,9 @@ public:
 	}
 
 	template <typename U>
-	auto add(U&& value) -> void
+	auto add(U&& value) -> node_handle_type
 	{
-		root_.add(std::forward<U>(value));
+		return root_.add(std::forward<U>(value));
 	}
 
 	template <typename... Path>
