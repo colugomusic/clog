@@ -538,7 +538,7 @@ tree.add(Item{"two", 2}, Item{"six", 6});
 tree.add(Item{"three", 3})
 
 // add() returns a handle to the deepest added node
-auto four = tree.add(Item{"one", 1}, Item{"four", 4});
+auto four = tree.add(Item{"four", 4});
 
 four->add(Item{"seven", 7}, Item{"eleven", 11});
 four->add(Item{"seven", 7}, Item{"twelve", 12});
