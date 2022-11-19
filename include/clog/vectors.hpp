@@ -54,8 +54,6 @@ auto find(Begin begin, End end, const T& value, Compare compare = Compare{})
 	return pos;
 }
 
-template <typename T, typename Compare = std::less<T>>
-auto find(std::vector<T>& vector, const T& value, Compare compare = Compare{})
 template <typename T, typename U, typename Compare = std::less<T>>
 auto find(std::vector<T>& vector, const U& value, Compare compare = Compare{})
 {
