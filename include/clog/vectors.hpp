@@ -124,7 +124,7 @@ auto overwrite(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 
 	if (pos != std::cend(*vector))
 	{
-		*pos = value;
+		*pos = std::forward<U>(value);
 		return pos;
 	}
 
