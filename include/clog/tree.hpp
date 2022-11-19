@@ -99,25 +99,23 @@ public:
 		return pos->make_handle();
 	}
 
-	auto add(const std::vector<T>& path) -> node_handle_type
+	template <typename U, typename... Tail>
+	auto add(U&& head, Tail&&... tail) -> node_handle_type
 	{
-		node_type* node{this};
+		node_type* node;
 
-		for (auto part { path.cbegin() }; part != path.cend(); part++)
+		auto handle { find(head) };
+
+		if (!handle)
 		{
-			auto handle { node->find(*part) };
-
-			if (!handle)
-			{
-				node = &node->add(*part).get_node();
-			}
-			else
-			{
-				node = &handle.get_node();
-			}
+			node = &add(std::forward<U>(head)).get_node();
+		}
+		else
+		{
+			node = &handle.get_node();
 		}
 
-		return node->make_handle();
+		return node->add(std::forward<Tail>(tail)...);
 	}
 
 	auto remove(node_handle_type child) -> void
@@ -252,9 +250,10 @@ public:
 		root_.add(std::forward<U>(value));
 	}
 
-	auto add(const std::vector<T>& path) -> node_handle_type
+	template <typename... Path>
+	auto add(Path&&... path) -> node_handle_type
 	{
-		return root_.add(path);
+		return root_.add(std::forward<Path>(path)...);
 	}
 
 	auto remove(node_handle_type node) -> void
