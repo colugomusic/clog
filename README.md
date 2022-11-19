@@ -506,6 +506,7 @@ It's an acyclic, unbalanced, ordered tree.
 - Siblings are always sorted (`std::less<T>` by default).
 - Siblings are stored as contiguous blocks of memory, so it's good if your tree tends to be wider than it is deep.
 - Each node makes 1 additional allocation for a control block which allows node handles to remain valid even if the internal vectors need to be resized.
+- `T` must be moveable or copyable.
 
 ![tree](https://github.com/colugomusic/clog/blob/master/doc/images/tree.png)
 
@@ -517,7 +518,7 @@ struct Item
 	std::string text;
 	int value; // Used for ordering
 	
-	auto operator(const Item& rhs) const -> bool
+	auto operator<(const Item& rhs) const -> bool
 	{
 		return value < rhs.value;
 	}
@@ -537,7 +538,7 @@ tree.add(Item{"two", 2}, Item{"six", 6});
 tree.add(Item{"three", 3})
 
 // add() returns a handle to the deepest added node
-auto four = tree.add(Item{"one", 1}, Item{"four", 4});
+auto four = tree.add(Item{"four", 4});
 
 four->add(Item{"seven", 7}, Item{"eleven", 11});
 four->add(Item{"seven", 7}, Item{"twelve", 12});
@@ -577,8 +578,8 @@ assert (eleven);
 eleven->get_value().text = "onze";
 
 // set_value() can be used to overwrite the entire value of
-// the node. This is safe because the node will always be
-// re-inserted in the correct place.
+// the node. Unlike the above, this is safe because the node
+// will always be re-inserted in the correct place.
 eleven->set_value(Item{"thirteen", 13});
 
 // The "eleven" handle will remain valid even if more
