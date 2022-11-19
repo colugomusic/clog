@@ -68,14 +68,14 @@ auto find(const std::vector<T>& vector, const T& value, Compare compare = Compar
 
 // Insert the value into the sorted vector.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare = std::less<T>>
-auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
+template <typename T, typename U, typename Compare = std::less<T>>
+auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
-	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), std::move(value), compare) };
+	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), value, compare) };
 
-	pos = vector->insert(pos, value);
+	pos = vector->insert(pos, std::forward<U>(value));
 
 	return { pos, true };
 }
@@ -94,8 +94,8 @@ namespace unique {
 // Insert the value into the sorted vector.
 // Fails if the value already exists.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare = std::less<T>>
-auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
+template <typename T, typename U, typename Compare = std::less<T>>
+auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
@@ -106,7 +106,7 @@ auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std
 		return { pos, false };
 	}
 
-	pos = vector->insert(pos, std::move(value));
+	pos = vector->insert(pos, std::forward<U>(value));
 
 	return { pos, true };
 }
@@ -115,8 +115,8 @@ auto insert(std::vector<T>* vector, T value, Compare compare = Compare{}) -> std
 // If a value already exists that compares equal to it,
 // it is overwritten.
 // Precondition: The vector is sorted.
-template <typename T, typename Compare = std::less<T>>
-auto overwrite(std::vector<T>* vector, T value, Compare compare = Compare{})
+template <typename T, typename U, typename Compare = std::less<T>>
+auto overwrite(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
@@ -130,7 +130,7 @@ auto overwrite(std::vector<T>* vector, T value, Compare compare = Compare{})
 
 	bool success;
 
-	std::tie(pos, success) = insert(vector, std::move(value), compare);
+	std::tie(pos, success) = insert(vector, std::forward<U>(value), compare);
 
 	assert (success);
 
@@ -143,12 +143,12 @@ namespace checked {
 // Precondition: The vector is sorted.
 // Precondition: The value does not already exist.
 // Postcondition: The value was inserted.
-template <typename T, typename Compare = std::less<T>>
-auto insert(std::vector<T>* vector, T value, Compare compare = Compare{})
+template <typename T, typename U, typename Compare = std::less<T>>
+auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
-	const auto [pos, success] = unique::insert(vector, std::move(value), compare);
+	const auto [pos, success] = unique::insert(vector, std::forward<U>(value), compare);
 
 	assert (success);
 
@@ -172,21 +172,28 @@ auto erase(std::vector<T>* vector, const T& value, Compare compare = Compare{}) 
 template <typename T, typename Compare = std::less<T>>
 struct vector : public std::vector<T>
 {
+	using base_t = std::vector<T>;
+
 	vector() = default;
 
-	vector(std::vector<T> && vec)
-		: std::vector<T>(std::forward<std::vector<T>>(vec))
+	vector(base_t && vec)
+		: base_t(std::forward<base_t>(vec))
 	{
 	}
 
 	auto contains(const T& value) const -> bool
 	{
-		return clog::vectors::sorted::contains(static_cast<std::vector<T>>(*this), value, Compare{});
+		return clog::vectors::sorted::contains(static_cast<base_t>(*this), value, Compare{});
 	}
 
-	auto insert(T value) -> void
+	auto insert(const T& value) -> void
 	{
-		checked::insert(this, std::move(value), Compare{});
+		checked::insert(static_cast<base_t*>(this), value, Compare{});
+	}
+
+	auto insert(T&& value) -> void
+	{
+		checked::insert(static_cast<base_t*>(this), std::move(value), Compare{});
 	}
 
 	auto erase(const T& value) -> void
