@@ -528,8 +528,11 @@ clog::tree<Item> tree{Item{"one", 1}};
 // Calling add() on the tree object always adds to the root node
 tree.add(Item{"two", 2}, Item{"five", 5}, Item{"nine", 9});
 
-// Nodes are only added if they don't already exist
+// Intermediate nodes are only added if they don't already exist.
+// If the leaf node already exists (as determined by the comparison
+// function), it is overwritten.
 tree.add(Item{"two", 2}, Item{"five", 5}, Item{"ten", 10});
+tree.add(Item{"two", 2}, Item{"five", 5}, Item{"TEN", 10}); // Overwrites the leaf node
 tree.add(Item{"two", 2}, Item{"six", 6});
 tree.add(Item{"three", 3})
 
