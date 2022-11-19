@@ -578,8 +578,8 @@ assert (eleven);
 eleven->get_value().text = "onze";
 
 // set_value() can be used to overwrite the entire value of
-// the node. This is safe because the node will always be
-// re-inserted in the correct place.
+// the node. Unlike the above, this is safe because the node
+// will always be re-inserted in the correct place.
 eleven->set_value(Item{"thirteen", 13});
 
 // The "eleven" handle will remain valid even if more
