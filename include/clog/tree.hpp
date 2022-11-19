@@ -35,16 +35,6 @@ struct tree_node_handle
 	{
 	}
 
-	auto get_node() -> node_type&
-	{
-		return *control_block_->node;
-	}
-
-	auto get_node() const -> const node_type&
-	{
-		return *control_block_->node;
-	}
-
 	operator bool() const
 	{
 		return control_block_ != nullptr;
@@ -62,7 +52,18 @@ struct tree_node_handle
 
 private:
 
+	auto get_node() -> node_type&
+	{
+		return *control_block_->node;
+	}
+
+	auto get_node() const -> const node_type&
+	{
+		return *control_block_->node;
+	}
+
 	control_block_type* control_block_{};
+	friend class node_type;
 };
 
 template <typename T, typename Compare>
@@ -86,7 +87,16 @@ public:
 	template <typename U>
 	auto set_value(U&& value)
 	{
-		value_ = std::forward<U>(value);
+		auto& parent { parent_.get_node() };
+		const auto pos { vectors::sorted::find(parent.children_, value_, parent.compare_) };
+
+		auto node { std::move(*pos) };
+
+		parent.children_.erase(pos);
+
+		node.value_ = std::forward<U>(value);
+
+		vectors::sorted::unique::checked::insert(&parent.children_, std::move(node), parent.compare_);
 	}
 
 	template <typename U>
