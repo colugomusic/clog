@@ -518,7 +518,7 @@ struct Item
 	std::string text;
 	int value; // Used for ordering
 	
-	auto operator(const Item& rhs) const -> bool
+	auto operator<(const Item& rhs) const -> bool
 	{
 		return value < rhs.value;
 	}
