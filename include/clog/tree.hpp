@@ -191,6 +191,11 @@ public:
 		return node.make_handle();
 	}
 
+	auto make_handle() const -> node_handle_type
+	{
+		return node_handle_type{control_block_.get()};
+	}
+
 	tree_node(node_type&& rhs) noexcept
 		: parent_{rhs.parent_}
 		, value_{std::move(rhs.value_)}
@@ -225,11 +230,6 @@ private:
 		, control_block_{std::make_unique<control_block_type>()}
 	{
 		control_block_->node = this;
-	}
-
-	auto make_handle() const -> node_handle_type
-	{
-		return node_handle_type{control_block_.get()};
 	}
 
 	node_handle_type parent_{};
