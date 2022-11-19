@@ -99,9 +99,9 @@ auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> s
 {
 	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
-	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), value, compare) };
+	auto pos { std::lower_bound(std::begin(*vector), std::end(*vector), value, compare) };
 
-	if (pos != std::cbegin(*vector) && *(pos-1) == value)
+	if (pos != std::cend(*vector) && !compare(value, *pos))
 	{
 		return { pos, false };
 	}
