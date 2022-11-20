@@ -76,7 +76,10 @@ class idle_task_pusher
 {
 public:
 
+	idle_task_pusher() = default;
+	idle_task_pusher(idle_task_pusher&& rhs) noexcept;
 	idle_task_pusher(idle_task_processor* processor, idle_task_processor::index_t slot);
+	auto operator=(idle_task_pusher&& rhs) noexcept -> idle_task_pusher&;
 	~idle_task_pusher();
 
 	auto push(idle_task task) -> void;
@@ -120,7 +123,7 @@ public:
 
 private:
 
-	idle_task_processor* processor_;
+	idle_task_processor* processor_{};
 	idle_task_processor::index_t slot_;
 	std::unordered_map<idle_task_processor::index_t, idle_task> premapped_tasks_;
 };
@@ -349,10 +352,26 @@ inline auto idle_task_processor::process_all() -> void
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 // pusher
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
+inline idle_task_pusher::idle_task_pusher(idle_task_pusher&& rhs) noexcept
+	: processor_{rhs.processor_}
+	, slot_{rhs.slot_}
+{
+	rhs.processor_ = {};
+}
+
 inline idle_task_pusher::idle_task_pusher(idle_task_processor* processor, idle_task_processor::index_t slot)
 	: processor_{ processor }
 	, slot_{ slot }
 {
+}
+
+inline auto idle_task_pusher::operator=(idle_task_pusher&& rhs) noexcept -> idle_task_pusher&
+{
+	processor_ = rhs.processor_;
+	slot_ = rhs.slot_;
+	rhs.processor_ = {};
+
+	return *this;
 }
 
 inline idle_task_pusher::~idle_task_pusher()
