@@ -121,7 +121,7 @@ public:
 	{
 		node_type node(make_handle(), std::forward<U>(value), depth_ + 1, compare_);
 
-		const auto pos = vectors::sorted::find(&children_, std::move(node), compare_);
+		const auto pos = vectors::sorted::find(children_, std::move(node), compare_);
 
 		if (pos == std::cend(children_))
 		{
@@ -184,6 +184,14 @@ public:
 	auto remove(node_handle_type child) -> void
 	{
 		vectors::sorted::unique::checked::erase(&children_, child.get_node(), compare_);
+	}
+
+	template <typename U>
+	auto remove(U&& value) -> void
+	{
+		node_type node(make_handle(), std::forward<U>(value), depth_ + 1, compare_);
+
+		vectors::sorted::unique::checked::erase(&children_, std::move(node), compare_);
 	}
 
 	template <typename Visitor>
@@ -276,10 +284,29 @@ public:
 		return *this;
 	}
 
-private:
+	tree_node(const node_type& rhs)
+		: parent_{rhs.parent_}
+		, value_{rhs.value_}
+		, depth_{rhs.depth_}
+		, compare_{rhs.compare_}
+		, children_{rhs.children_}
+	{
+		control_block_->node = this;
+	}
 
-	tree_node(const node_type& rhs) = delete;
-	auto operator=(const node_type& rhs) -> node_type& = delete;
+	auto operator=(const node_type& rhs) -> node_type&
+	{
+		parent_ = rhs.parent_;
+		value_ = rhs.value_;
+		depth_ = rhs.depth_;
+		compare_ = rhs.compare_;
+		children_ = rhs.children_;
+		control_block_->node = this;
+
+		return *this;
+	}
+
+private:
 
 	tree_node(node_handle_type parent, T initial_value, int depth, Compare compare = Compare{})
 		: parent_{parent}
@@ -309,16 +336,15 @@ public:
 	using node_type = tree_node<T, Compare>;
 	using node_handle_type = tree_node_handle<T, Compare>;
 
-	tree()
-		: root_{node_handle_type{}, T{}, 0, Compare{}}
-		, compare_{}
-	{
-	}
-
 	tree(T root_value, const Compare& compare = Compare{})
 		: root_{node_handle_type{}, root_value, 0, compare}
 		, compare_{compare}
 	{
+	}
+
+	auto get_root() const
+	{
+		return root_.make_handle();
 	}
 
 	template <typename U>
