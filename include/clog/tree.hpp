@@ -40,6 +40,16 @@ struct tree_node_handle
 		return control_block_ != nullptr;
 	}
 
+	auto& operator*()
+	{
+		return *control_block_->node;
+	}
+
+	auto& operator*() const
+	{
+		return *control_block_->node;
+	}
+
 	auto operator->()
 	{
 		return control_block_->node;
@@ -48,6 +58,11 @@ struct tree_node_handle
 	auto operator->() const
 	{
 		return control_block_->node;
+	}
+
+	auto operator<(const tree_node_handle<T, Compare>& rhs) const -> bool
+	{
+		return control_block_ < rhs.control_block_;
 	}
 
 private:
@@ -75,6 +90,7 @@ public:
 	using node_handle_type = tree_node_handle<T, Compare>;
 	using node_type = tree_node<T, Compare>;
 
+	auto get_depth() const { return depth_; }
 	auto get_parent() const { return parent_; }
 	auto& get_value() { return value_; }
 	auto& get_value() const { return value_; }
@@ -101,9 +117,24 @@ public:
 	}
 
 	template <typename U>
+	auto find(U&& value) -> node_handle_type
+	{
+		node_type node(make_handle(), std::forward<U>(value), depth_ + 1, compare_);
+
+		const auto pos = vectors::sorted::find(&children_, std::move(node), compare_);
+
+		if (pos == std::cend(children_))
+		{
+			return node_handle_type{};
+		}
+
+		return pos->make_handle();
+	}
+
+	template <typename U>
 	auto add(U&& value) -> node_handle_type
 	{
-		node_type node(make_handle(), std::forward<U>(value), compare_);
+		node_type node(make_handle(), std::forward<U>(value), depth_ + 1, compare_);
 
 		const auto pos = vectors::sorted::unique::overwrite(&children_, std::move(node), compare_);
 
@@ -129,6 +160,27 @@ public:
 		return node->add(std::forward<Tail>(tail)...);
 	}
 
+	//auto add_nodes(const std::vector<T>& path) -> node_handle_type
+	//{
+	//	node_type* node{this};
+
+	//	for (const auto& part : path)
+	//	{
+	//		auto handle{node->find(part)};
+
+	//		if (!handle)
+	//		{
+	//			node = &add(part).get_node();
+	//		}
+	//		else
+	//		{
+	//			node = &handle.get_node();
+	//		}
+	//	}
+
+	//	return node->make_handle();
+	//}
+
 	auto remove(node_handle_type child) -> void
 	{
 		vectors::sorted::unique::checked::erase(&children_, child.get_node(), compare_);
@@ -146,9 +198,11 @@ public:
 			const auto node { queue.front() };
 			queue.pop_front();
 
-			if (visitor(node->value_))
+			const auto handle{node->make_handle()};
+
+			if (visitor(handle))
 			{
-				return node->make_handle();
+				return handle;
 			}
 
 			for (const auto& child : node->children_)
@@ -163,9 +217,11 @@ public:
 	template <typename Visitor>
 	auto visit_depth_first(Visitor&& visitor) const -> node_handle_type
 	{
-		if (visitor(value_))
+		const auto handle{make_handle()};
+
+		if (visitor(handle))
 		{
-			return make_handle();
+			return handle;
 		}
 
 		for (const auto& child : children_)
@@ -199,6 +255,7 @@ public:
 	tree_node(node_type&& rhs) noexcept
 		: parent_{rhs.parent_}
 		, value_{std::move(rhs.value_)}
+		, depth_{rhs.depth_}
 		, compare_{rhs.compare_}
 		, children_{std::move(rhs.children_)}
 		, control_block_{std::move(rhs.control_block_)}
@@ -210,6 +267,7 @@ public:
 	{
 		parent_ = rhs.parent_;
 		value_ = std::move(rhs.value_);
+		depth_ = rhs.depth_;
 		compare_ = rhs.compare_;
 		children_ = std::move(rhs.children_);
 		control_block_ = std::move(rhs.control_block_);
@@ -223,9 +281,10 @@ private:
 	tree_node(const node_type& rhs) = delete;
 	auto operator=(const node_type& rhs) -> node_type& = delete;
 
-	tree_node(node_handle_type parent, T initial_value, Compare compare = Compare{})
+	tree_node(node_handle_type parent, T initial_value, int depth, Compare compare = Compare{})
 		: parent_{parent}
 		, value_{initial_value}
+		, depth_{depth}
 		, compare_{compare}
 		, control_block_{std::make_unique<control_block_type>()}
 	{
@@ -234,6 +293,7 @@ private:
 
 	node_handle_type parent_{};
 	T value_;
+	int depth_;
 	Compare compare_;
 	std::vector<node_type> children_;
 	std::unique_ptr<control_block_type> control_block_;
@@ -249,8 +309,14 @@ public:
 	using node_type = tree_node<T, Compare>;
 	using node_handle_type = tree_node_handle<T, Compare>;
 
+	tree()
+		: root_{node_handle_type{}, T{}, 0, Compare{}}
+		, compare_{}
+	{
+	}
+
 	tree(T root_value, const Compare& compare = Compare{})
-		: root_{node_handle_type{}, root_value, compare}
+		: root_{node_handle_type{}, root_value, 0, compare}
 		, compare_{compare}
 	{
 	}
@@ -266,6 +332,17 @@ public:
 	{
 		return root_.add(std::forward<Path>(path)...);
 	}
+
+	template <typename U>
+	auto find(U&& value) -> node_handle_type
+	{
+		return rood_.find(std::forward<U>(value));
+	}
+
+	//auto add_nodes(const std::vector<T>& path) -> node_handle_type
+	//{
+	//	return root_.add_nodes(path);
+	//}
 
 	auto remove(node_handle_type node) -> void
 	{
