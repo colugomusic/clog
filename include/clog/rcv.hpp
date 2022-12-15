@@ -164,6 +164,7 @@ public:
 
 	unsafe_rcv() = default;
 	unsafe_rcv(unsafe_rcv&& rhs) = default;
+	auto operator=(unsafe_rcv&& rhs) -> unsafe_rcv& = default;
 
 	unsafe_rcv(const unsafe_rcv& rhs)
 		: next_{rhs.next_}
