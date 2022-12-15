@@ -14,12 +14,6 @@ class lock_free_task_processor
 {
 public:
 
-	//
-	// Do not create new task pushers while the audio stream is active!
-	// It's not thread safe!
-	// 
-	// Create all required task pushers before the audio stream starts
-	//
 	auto make_pusher(size_t max_size) -> lock_free_task_pusher<LockFreeQueue>;
 	auto process_all() -> void;
 
