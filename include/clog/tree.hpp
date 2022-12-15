@@ -89,6 +89,7 @@ public:
 	using control_block_type = detail::tree_node_control_block<T, Compare>;
 	using node_handle_type = tree_node_handle<T, Compare>;
 	using node_type = tree_node<T, Compare>;
+	using compare_type = Compare;
 
 	auto get_depth() const { return depth_; }
 	auto get_parent() const { return parent_; }
@@ -114,6 +115,28 @@ public:
 		node.value_ = std::forward<U>(value);
 
 		vectors::sorted::unique::checked::insert(&parent.children_, std::move(node), parent.compare_);
+	}
+
+	template <typename U>
+	auto find_or_add(U&& value)
+	{
+		node_type node(make_handle(), value, depth_ + 1, compare_);
+
+		const auto begin{std::cbegin(children_)};
+		const auto end{std::cend(children_)};
+
+		assert (std::is_sorted(begin, end, compare_));
+
+		auto pos{std::lower_bound(begin, end, node, compare_)};
+
+		if (pos == end || compare_(value, *pos))
+		{
+			pos = children_.insert(pos, std::move(node));
+
+			return std::make_pair(pos->make_handle(), true);
+		}
+
+		return std::make_pair(pos->make_handle(), false);
 	}
 
 	template <typename U>
@@ -234,7 +257,12 @@ public:
 
 		for (const auto& child : children_)
 		{
-			child.visit_depth_first(visitor);
+			const auto result{child.visit_depth_first(visitor)};
+
+			if (result)
+			{
+				return result;
+			}
 		}
 
 		return {};
@@ -290,6 +318,7 @@ public:
 		, depth_{rhs.depth_}
 		, compare_{rhs.compare_}
 		, children_{rhs.children_}
+		, control_block_{std::make_unique<control_block_type>()}
 	{
 		control_block_->node = this;
 	}
@@ -301,6 +330,7 @@ public:
 		depth_ = rhs.depth_;
 		compare_ = rhs.compare_;
 		children_ = rhs.children_;
+		control_block_ = std::make_unique<control_block_type>();
 		control_block_->node = this;
 
 		return *this;
@@ -362,7 +392,7 @@ public:
 	template <typename U>
 	auto find(U&& value) -> node_handle_type
 	{
-		return rood_.find(std::forward<U>(value));
+		return root_.find(std::forward<U>(value));
 	}
 
 	//auto add_nodes(const std::vector<T>& path) -> node_handle_type
