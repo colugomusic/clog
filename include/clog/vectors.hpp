@@ -207,6 +207,7 @@ struct vector : public std::vector<T>
 } // sorted
 } // vectors
 
+namespace vs = vectors::sorted;
 namespace vsu = vectors::sorted::unique;
 namespace vsuc = vectors::sorted::unique::checked;
 
