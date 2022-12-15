@@ -66,6 +66,20 @@ public:
 		}
 	}
 
+	auto operator=(signal&& rhs) noexcept -> signal&
+	{
+		cns_ = std::move(rhs.cns_);
+
+		const auto handles { cns_.active_handles() };
+
+		for (const auto handle : handles)
+		{
+			cns_.get(handle)->body->signal = this;
+		}
+
+		return *this;
+	}
+
 	~signal()
 	{
 		const auto handles { cns_.active_handles() };
@@ -199,6 +213,11 @@ public:
 	auto operator+=(cn && c) -> void
 	{
 		connections_.push_back(std::move(c));
+	}
+
+	auto is_empty() const
+	{
+		return connections_.empty();
 	}
 
 private:
