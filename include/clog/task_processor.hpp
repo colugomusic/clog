@@ -7,20 +7,30 @@
 namespace clog {
 
 using task_t = std::function<void()>;
+template <typename LockFreeQueue> class lock_free_task_pusher_context;
 template <typename LockFreeQueue> class lock_free_task_pusher;
+class locking_task_pusher;
+
+struct lock_free_task
+{
+	int pusher_id;
+	task_t task;
+};
 
 template <typename LockFreeQueue>
 class lock_free_task_processor
 {
 public:
 
-	auto make_pusher(size_t max_size) -> lock_free_task_pusher<LockFreeQueue>;
+	auto make_pusher_context(size_t max_size) -> lock_free_task_pusher_context<LockFreeQueue>;
 	auto process_all() -> void;
 
 private:
 
-	auto push(clog::rcv_handle handle, task_t task) -> void;
+	auto push(clog::rcv_handle handle, lock_free_task task) -> void;
 	auto release(clog::rcv_handle handle) -> void;
+	auto release_pusher(clog::rcv_handle, int pusher_id) -> void;
+	auto next_pusher_id() -> int;
 
 	struct queue
 	{
@@ -28,14 +38,42 @@ private:
 		queue(queue&&) noexcept = default;
 
 		auto process_all() -> void;
-		auto push(task_t task) -> void;
+		auto push(lock_free_task task) -> void;
+		auto release_pusher(int pusher_id) -> void;
 
 	private:
 
 		LockFreeQueue queue_;
+		std::vector<int> dead_pushers_;
 	};
 
 	clog::unsafe_rcv<queue> queues_;
+	int next_pusher_id_{0};
+
+	friend class lock_free_task_pusher_context<LockFreeQueue>;
+};
+
+template <typename LockFreeQueue>
+class lock_free_task_pusher_context
+{
+public:
+
+	lock_free_task_pusher_context() = default;
+	lock_free_task_pusher_context(lock_free_task_pusher_context<LockFreeQueue>&& rhs) noexcept;
+	lock_free_task_pusher_context(lock_free_task_processor<LockFreeQueue>* processor, clog::rcv_handle handle);
+	auto operator=(lock_free_task_pusher_context<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher_context<LockFreeQueue>&;
+	~lock_free_task_pusher_context();
+
+	auto make_pusher() -> lock_free_task_pusher<LockFreeQueue>;
+	auto release() -> void;
+
+private:
+
+	auto push(lock_free_task task) -> void;
+	auto release_pusher(int pusher_id) -> void;
+
+	lock_free_task_processor<LockFreeQueue>* processor_{};
+	clog::rcv_handle handle_;
 
 	friend class lock_free_task_pusher<LockFreeQueue>;
 };
@@ -47,7 +85,7 @@ public:
 
 	lock_free_task_pusher() = default;
 	lock_free_task_pusher(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept;
-	lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, clog::rcv_handle handle);
+	lock_free_task_pusher(lock_free_task_pusher_context<LockFreeQueue>* context, int pusher_id);
 	auto operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&;
 	~lock_free_task_pusher();
 
@@ -56,11 +94,9 @@ public:
 
 private:
 
-	lock_free_task_processor<LockFreeQueue>* processor_{};
-	clog::rcv_handle handle_;
+	lock_free_task_pusher_context<LockFreeQueue>* context_{};
+	int pusher_id;
 };
-
-class locking_task_pusher;
 
 class locking_task_processor
 {
@@ -125,31 +161,41 @@ inline lock_free_task_processor<LockFreeQueue>::queue::queue(size_t max_size)
 template <typename LockFreeQueue>
 inline auto lock_free_task_processor<LockFreeQueue>::queue::process_all() -> void
 {
-	task_t task;
+	lock_free_task task;
 
 	while (queue_.pop(&task))
 	{
-		task();
+		if (vs::contains(dead_pushers_, task.pusher_id)) continue;
+
+		task.task();
 	}
+
+	dead_pushers_.clear();
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::queue::push(task_t task) -> void
+inline auto lock_free_task_processor<LockFreeQueue>::queue::push(lock_free_task task) -> void
 {
 	queue_.push(std::move(task));
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::queue::release_pusher(int pusher_id) -> void
+{
+	vsuc::insert(&dead_pushers_, pusher_id);
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 // lock-free processor
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::make_pusher(size_t max_size) -> lock_free_task_pusher<LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::make_pusher_context(size_t max_size) -> lock_free_task_pusher_context<LockFreeQueue>
 {
-	return lock_free_task_pusher(this, queues_.acquire(max_size));
+	return lock_free_task_pusher_context(this, queues_.acquire(max_size));
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::push(clog::rcv_handle handle, task_t task) -> void
+inline auto lock_free_task_processor<LockFreeQueue>::push(clog::rcv_handle handle, lock_free_task task) -> void
 {
 	queues_.get(handle)->push(task);
 }
@@ -158,6 +204,18 @@ template <typename LockFreeQueue>
 inline auto lock_free_task_processor<LockFreeQueue>::release(clog::rcv_handle handle) -> void
 {
 	queues_.release(handle);
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::release_pusher(clog::rcv_handle handle, int pusher_id) -> void
+{
+	queues_.get(handle)->release_pusher(pusher_id);
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::next_pusher_id() -> int
+{
+	return next_pusher_id_++;
 }
 
 template <typename LockFreeQueue>
@@ -170,10 +228,10 @@ inline auto lock_free_task_processor<LockFreeQueue>::process_all() -> void
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
-// lock-free pusher
+// lock-free pusher context
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 template <typename LockFreeQueue>
-inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept
+inline lock_free_task_pusher_context<LockFreeQueue>::lock_free_task_pusher_context(lock_free_task_pusher_context<LockFreeQueue>&& rhs) noexcept
 	: processor_{rhs.processor_}
 	, handle_{rhs.handle_}
 {
@@ -181,14 +239,14 @@ inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_tas
 }
 
 template <typename LockFreeQueue>
-inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, clog::rcv_handle handle)
+inline lock_free_task_pusher_context<LockFreeQueue>::lock_free_task_pusher_context(lock_free_task_processor<LockFreeQueue>* processor, clog::rcv_handle handle)
 	: processor_{processor}
 	, handle_{handle}
 {
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_pusher<LockFreeQueue>::operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&
+inline auto lock_free_task_pusher_context<LockFreeQueue>::operator=(lock_free_task_pusher_context<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher_context<LockFreeQueue>&
 {
 	processor_ = rhs.processor_;
 	handle_ = rhs.handle_;
@@ -198,7 +256,7 @@ inline auto lock_free_task_pusher<LockFreeQueue>::operator=(lock_free_task_pushe
 }
 
 template <typename LockFreeQueue>
-inline lock_free_task_pusher<LockFreeQueue>::~lock_free_task_pusher()
+inline lock_free_task_pusher_context<LockFreeQueue>::~lock_free_task_pusher_context()
 {
 	if (!processor_) return;
 
@@ -206,7 +264,13 @@ inline lock_free_task_pusher<LockFreeQueue>::~lock_free_task_pusher()
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_pusher<LockFreeQueue>::push(task_t task) -> void
+inline auto lock_free_task_pusher_context<LockFreeQueue>::make_pusher() -> lock_free_task_pusher<LockFreeQueue>
+{
+	return {this, processor_->next_pusher_id()};
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_pusher_context<LockFreeQueue>::push(lock_free_task task) -> void
 {
 	if (!processor_) return;
 
@@ -214,11 +278,71 @@ inline auto lock_free_task_pusher<LockFreeQueue>::push(task_t task) -> void
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_pusher<LockFreeQueue>::release() -> void
+inline auto lock_free_task_pusher_context<LockFreeQueue>::release() -> void
 {
 	processor_->release(handle_);
 
 	processor_ = {};
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_pusher_context<LockFreeQueue>::release_pusher(int pusher_id) -> void
+{
+	if (!processor_) return;
+
+	processor_->release_pusher(handle_, pusher_id);
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+// lock-free pusher
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+template <typename LockFreeQueue>
+inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept
+	: processor_{rhs.processor_}
+	, pusher_id{rhs.pusher_id}
+{
+	rhs.processor_ = {};
+}
+
+template <typename LockFreeQueue>
+inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_pusher_context<LockFreeQueue>* context, int pusher_id)
+	: context_{context}
+	, pusher_id{pusher_id}
+{
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_pusher<LockFreeQueue>::operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&
+{
+	context_ = rhs.context_;
+	pusher_id = rhs.pusher_id;
+	rhs.context_ = {};
+
+	return *this;
+}
+
+template <typename LockFreeQueue>
+inline lock_free_task_pusher<LockFreeQueue>::~lock_free_task_pusher()
+{
+	if (!context_) return;
+
+	release();
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_pusher<LockFreeQueue>::push(task_t task) -> void
+{
+	if (!context_) return;
+
+	context_->push(lock_free_task{pusher_id, task});
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_pusher<LockFreeQueue>::release() -> void
+{
+	context_->release_pusher(pusher_id);
+
+	context_ = {};
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -351,7 +475,7 @@ struct moodycamel_rwq
 	{
 	}
 
-	inline auto pop(task_t* out_task) -> bool
+	inline auto pop(lock_free_task* out_task) -> bool
 	{
 		return impl_.try_dequeue(*out_task);
 	}
@@ -370,10 +494,11 @@ struct moodycamel_rwq
 
 private:
 
-	moodycamel::ReaderWriterQueue<task_t> impl_;
+	moodycamel::ReaderWriterQueue<lock_free_task> impl_;
 };
 
 using lock_free_task_processor_mc = lock_free_task_processor<moodycamel_rwq>;
+using lock_free_task_pusher_context_mc = lock_free_task_pusher_context<moodycamel_rwq>;
 using lock_free_task_pusher_mc = lock_free_task_pusher<moodycamel_rwq>;
 
 } // clog
