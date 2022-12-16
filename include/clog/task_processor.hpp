@@ -2,6 +2,7 @@
 
 #include <functional>
 #include <mutex>
+#include <unordered_map>
 #include "rcv.hpp"
 
 namespace clog {
@@ -10,6 +11,7 @@ using task_t = std::function<void()>;
 template <typename LockFreeQueue> class lock_free_task_pusher_static;
 template <typename LockFreeQueue> class lock_free_task_pusher_dynamic;
 class locking_task_pusher;
+class serial_task_pusher;
 
 struct lock_free_task
 {
@@ -148,6 +150,115 @@ private:
 
 	locking_task_processor* processor_{};
 	clog::rcv_handle handle_;
+};
+
+class serial_task_processor
+{
+public:
+
+	using index_t = size_t;
+
+	auto make_pusher() -> serial_task_pusher;
+	auto process_all() -> void;
+
+private:
+
+	auto get_empty_slot() -> rcv_handle;
+	auto push(rcv_handle slot, task_t task) -> void;
+	auto push(rcv_handle slot, task_t task, index_t index) -> void;
+	auto release(rcv_handle slot) -> int;
+
+	struct slot
+	{
+		auto clear() -> int;
+		auto is_empty() const -> bool;
+		auto process_all() -> int;
+		auto push(task_t task) -> int;
+		auto push(task_t task, index_t index) -> int;
+
+	private:
+
+		struct task_vector
+		{
+			auto clear() -> int;
+			auto process_all() -> int;
+			auto push(task_t task) -> int;
+			auto push(task_t task, index_t index) -> int;
+
+		private:
+
+			std::vector<task_t> tasks_;
+			std::vector<task_t> indexed_tasks_;
+			std::vector<index_t> indices_;
+		};
+
+		bool processing_{ false };
+		int total_tasks_{ 0 };
+		task_vector tasks_;
+		task_vector pushed_while_processing_;
+	};
+
+	clog::unsafe_rcv<slot> slots_;
+	std::vector<rcv_handle> busy_slots_;
+	int total_tasks_{ 0 };
+
+	friend class serial_task_pusher;
+};
+
+class serial_task_pusher
+{
+public:
+
+	serial_task_pusher() = default;
+	serial_task_pusher(serial_task_pusher&& rhs) noexcept;
+	serial_task_pusher(serial_task_processor* processor, rcv_handle slot);
+	auto operator=(serial_task_pusher&& rhs) noexcept -> serial_task_pusher&;
+	~serial_task_pusher();
+
+	auto push(task_t task) -> void;
+	auto push(serial_task_processor::index_t index, task_t task) -> void;
+
+	template <typename ConvertibleToindex_tType>
+	auto push(ConvertibleToindex_tType index, task_t task) -> void
+	{
+		push(static_cast<serial_task_processor::index_t>(index), task);
+	}
+
+	template <typename ConvertibleToindex_tType>
+	auto push(ConvertibleToindex_tType index) -> void
+	{
+		const auto index_conv { static_cast<serial_task_processor::index_t>(index) };
+
+		assert (premapped_tasks_.find(index_conv) != std::cend(premapped_tasks_));
+
+		push(index, premapped_tasks_[index_conv]);
+	}
+
+	auto release() -> void;
+
+	template <typename ConvertibleToindex_tType>
+	auto& operator[](ConvertibleToindex_tType index)
+	{
+		return premapped_tasks_[static_cast<serial_task_processor::index_t>(index)];
+	}
+
+	template <typename ConvertibleToIndex>
+	auto operator<<(ConvertibleToIndex index) -> void
+	{
+		push(index);
+	}
+
+	template <typename ConvertibleToIndex>
+	auto make_callable(ConvertibleToIndex index)
+	{
+		return [this, index]() { push(index); };
+	}
+
+private:
+
+	serial_task_processor* processor_{};
+	rcv_handle slot_;
+	std::unordered_map<serial_task_processor::index_t, task_t> premapped_tasks_;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -372,7 +483,7 @@ inline auto locking_task_processor::queue::process_all() -> void
 
 	lock.unlock();
 
-	for (const auto& task : queue)
+	for (const auto task : queue)
 	{
 		task();
 	}
@@ -465,6 +576,249 @@ inline auto locking_task_pusher::push(task_t task) -> void
 inline auto locking_task_pusher::release() -> void
 {
 	processor_->release(handle_);
+
+	processor_ = {};
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+// serial processor slot task vector
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+inline auto serial_task_processor::slot::task_vector::clear() -> int
+{
+	const auto out { tasks_.size() + indices_.size() };
+
+	tasks_.clear();
+	indexed_tasks_.clear();
+	indices_.clear();
+
+	return static_cast<int>(out);
+}
+
+inline auto serial_task_processor::slot::task_vector::process_all() -> int
+{
+	for (auto task : tasks_)
+	{
+		task();
+	}
+
+	for (auto index : indices_)
+	{
+		indexed_tasks_[index]();
+	}
+
+	return clear();
+}
+
+inline auto serial_task_processor::slot::task_vector::push(task_t task) -> int
+{
+	tasks_.push_back(task);
+
+	return 1;
+}
+
+inline auto serial_task_processor::slot::task_vector::push(task_t task, index_t index) -> int
+{
+	if (indexed_tasks_.size() <= index)
+	{
+		indexed_tasks_.resize(index + 1);
+	}
+
+	if (indexed_tasks_[index]) return 0;
+
+	indexed_tasks_[index] = task;
+	indices_.push_back(index);
+
+	return 1;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+// serial processor slot
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+inline auto serial_task_processor::slot::clear() -> int
+{
+	total_tasks_ = 0;
+
+	return tasks_.clear() + pushed_while_processing_.clear();
+}
+
+inline auto serial_task_processor::slot::is_empty() const -> bool
+{
+	return total_tasks_ <= 0;
+}
+
+inline auto serial_task_processor::slot::process_all() -> int
+{
+	processing_ = true;
+
+	const auto total_processed { tasks_.process_all() };
+
+	processing_ = false;
+
+	tasks_ = std::move(pushed_while_processing_);
+
+	pushed_while_processing_.clear();
+
+	total_tasks_ -= total_processed;
+
+	return total_processed;
+}
+
+inline auto serial_task_processor::slot::push(task_t task) -> int
+{
+	int pushed_tasks{ 0 };
+
+	if (processing_)
+	{
+		pushed_tasks = pushed_while_processing_.push(task);
+	}
+	else
+	{
+		pushed_tasks = tasks_.push(task);
+	}
+
+	total_tasks_ += pushed_tasks;
+
+	return pushed_tasks;
+}
+
+inline auto serial_task_processor::slot::push(task_t task, index_t index) -> int
+{
+	int pushed_tasks{ 0 };
+
+	if (processing_)
+	{
+		pushed_tasks = pushed_while_processing_.push(task, index);
+	}
+	else
+	{
+		pushed_tasks = tasks_.push(task, index);
+	}
+
+	total_tasks_ += pushed_tasks;
+
+	return pushed_tasks;
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+// serial processor
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+inline auto serial_task_processor::make_pusher() -> serial_task_pusher
+{
+	return serial_task_pusher(this, slots_.acquire());
+}
+
+inline auto serial_task_processor::push(rcv_handle handle, task_t task) -> void
+{
+	const auto slot{slots_.get(handle)};
+	const auto was_empty{slot->is_empty()};
+
+	total_tasks_ += slot->push(task);
+
+	if (was_empty && !slot->is_empty())
+	{
+		busy_slots_.push_back(handle);
+	}
+}
+
+inline auto serial_task_processor::push(rcv_handle handle, task_t task, index_t index) -> void
+{
+	const auto slot{slots_.get(handle)};
+	const auto was_empty{slot->is_empty()};
+
+	total_tasks_ += slot->push(task, index);
+
+	if (was_empty && !slot->is_empty())
+	{
+		busy_slots_.push_back(handle);
+	}
+}
+
+inline auto serial_task_processor::release(rcv_handle handle) -> int
+{
+	const auto slot{slots_.get(handle)};
+	const auto dropped_tasks{slot->clear()};
+
+	total_tasks_ -= dropped_tasks;
+
+	slots_.release(handle);
+
+	return dropped_tasks;
+}
+
+inline auto serial_task_processor::process_all() -> void
+{
+	while (total_tasks_ > 0)
+	{
+		assert (busy_slots_.size() > 0);
+
+		const auto busy_slots{busy_slots_};
+
+		for (auto handle : busy_slots)
+		{
+			auto slot{slots_.get(handle)};
+
+			if (slot->is_empty()) continue;
+
+			total_tasks_ -= slot->process_all();
+
+			assert (total_tasks_ >= 0);
+
+			if (total_tasks_ == 0) break;
+		}
+	}
+	
+	busy_slots_.clear();
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+// serial pusher
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+inline serial_task_pusher::serial_task_pusher(serial_task_pusher&& rhs) noexcept
+	: processor_{rhs.processor_}
+	, slot_{rhs.slot_}
+{
+	rhs.processor_ = {};
+}
+
+inline serial_task_pusher::serial_task_pusher(serial_task_processor* processor, rcv_handle slot)
+	: processor_{ processor }
+	, slot_{ slot }
+{
+}
+
+inline auto serial_task_pusher::operator=(serial_task_pusher&& rhs) noexcept -> serial_task_pusher&
+{
+	processor_ = rhs.processor_;
+	slot_ = rhs.slot_;
+	rhs.processor_ = {};
+
+	return *this;
+}
+
+inline serial_task_pusher::~serial_task_pusher()
+{
+	if (!processor_) return;
+
+	release();
+}
+
+inline auto serial_task_pusher::push(task_t task) -> void
+{
+	if (!processor_) return;
+
+	processor_->push(slot_, task);
+}
+
+inline auto serial_task_pusher::push(serial_task_processor::index_t index, task_t task) -> void
+{
+	if (!processor_) return;
+
+	processor_->push(slot_, task, index);
+}
+
+inline auto serial_task_pusher::release() -> void
+{
+	processor_->release(slot_);
 
 	processor_ = {};
 }
