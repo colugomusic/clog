@@ -858,7 +858,7 @@ struct moodycamel_rwq
 
 		assert(success);
 #	else
-		impl_.(std::move(task));
+		impl_.emplace(std::move(task));
 #	endif
 	}
 
