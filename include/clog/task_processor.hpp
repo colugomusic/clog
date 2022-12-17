@@ -742,6 +742,13 @@ inline auto serial_task_processor::release(rcv_handle handle) -> int
 
 	slots_.release(handle);
 
+	const auto pos{std::find(std::cbegin(busy_slots_), std::cend(busy_slots_), handle)};
+
+	if (pos != std::cend(busy_slots_))
+	{
+		busy_slots_.erase(pos);
+	}
+
 	return dropped_tasks;
 }
 
