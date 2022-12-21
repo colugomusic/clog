@@ -418,10 +418,10 @@ inline auto lock_free_task_pusher_static<LockFreeQueue>::release_dynamic_pusher(
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 template <typename LockFreeQueue>
 inline lock_free_task_pusher_dynamic<LockFreeQueue>::lock_free_task_pusher_dynamic(lock_free_task_pusher_dynamic<LockFreeQueue>&& rhs) noexcept
-	: processor_{rhs.processor_}
+	: static_pusher_{rhs.static_pusher_}
 	, dynamic_pusher_id{rhs.dynamic_pusher_id}
 {
-	rhs.processor_ = {};
+	rhs.static_pusher_ = {};
 }
 
 template <typename LockFreeQueue>
