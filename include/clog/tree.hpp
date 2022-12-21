@@ -78,7 +78,7 @@ private:
 	}
 
 	control_block_type* control_block_{};
-	friend class node_type;
+	friend class tree_node<T, Compare>;
 };
 
 template <typename T, typename Compare>
