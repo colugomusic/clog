@@ -2,7 +2,7 @@
 
 #include <functional>
 
-namespace clog {
+namespace clg {
 
 template <typename T>
 class cached
@@ -74,4 +74,4 @@ private:
 	fn_t fn_;
 };
 
-} // clog
+} // clg

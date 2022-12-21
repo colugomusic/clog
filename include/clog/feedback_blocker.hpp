@@ -1,6 +1,6 @@
 #pragma once
 
-namespace clog {
+namespace clg {
 
 struct feedback_blocker
 {
@@ -56,4 +56,4 @@ private:
 	bool flag_{false};
 };
 
-} // clog
+} // clg

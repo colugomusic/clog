@@ -2,7 +2,7 @@
 
 #include <variant>
 
-namespace clog {
+namespace clg {
 
 template <typename Value, typename Error>
 struct expected
@@ -82,4 +82,4 @@ private:
 	std::variant<std::monostate, Value, Error> var_;
 };
 
-} // clog
+} // clg

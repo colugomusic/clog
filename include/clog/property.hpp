@@ -2,7 +2,7 @@
 
 #include "signal.hpp"
 
-namespace clog {
+namespace clg {
 
 template <class T>
 class get;
@@ -239,4 +239,4 @@ private:
 	setter_t set_;
 };
 
-} // clog
+} // clg

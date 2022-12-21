@@ -4,7 +4,7 @@
 #include <unordered_set>
 #include "rcv.hpp"
 
-namespace clog {
+namespace clg {
 
 namespace detail {
 
@@ -266,4 +266,4 @@ inline cn::~cn()
 	body_.signal->disconnect(handle_);
 }
 
-} // clog
+} // clg

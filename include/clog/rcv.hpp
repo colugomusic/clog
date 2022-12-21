@@ -4,7 +4,7 @@
 #include <new>
 #include "vectors.hpp"
 
-namespace clog {
+namespace clg {
 namespace detail {
 
 template <typename AlignAs>
@@ -240,7 +240,7 @@ public:
 
 	auto get(handle_t index) -> T*
 	{
-		assert (clog::vectors::sorted::contains(current_, index));
+		assert (clg::vectors::sorted::contains(current_, index));
 		return &buffer_[index];
 	}
 
@@ -255,7 +255,7 @@ private:
 	// I have a headache though
 	auto next() -> size_t
 	{
-		namespace cvs = clog::vectors::sorted;
+		namespace cvs = clg::vectors::sorted;
 
 		const auto out { next_++ };
 		auto check_beg { std::cbegin(current_) };
@@ -327,7 +327,7 @@ public:
 
 	auto get(handle_t index) -> T*
 	{
-		if (!clog::vectors::sorted::contains(unsafe_rcv<T, ResizeStrategy>::current_, index))
+		if (!clg::vectors::sorted::contains(unsafe_rcv<T, ResizeStrategy>::current_, index))
 		{
 			return nullptr;
 		}
@@ -336,4 +336,4 @@ public:
 	}
 };
 
-} // clog
+} // clg

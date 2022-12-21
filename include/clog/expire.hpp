@@ -3,7 +3,7 @@
 #include <unordered_map>
 #include "signal.hpp"
 
-namespace clog {
+namespace clg {
 
 class expiry_token
 {
@@ -126,7 +126,7 @@ private:
 			detach(object);
 		};
 
-		static_cast<T*>(this)->update(clog::attach<U>{object});
+		static_cast<T*>(this)->update(clg::attach<U>{object});
 		attached_objects_[std::hash<U>()(object)] = observe_expiry(object, on_expired);
 	}
 
@@ -134,10 +134,10 @@ private:
 	auto detach(U object) -> void
 	{
 		attached_objects_.erase(std::hash<U>()(object));
-		static_cast<T*>(this)->update(clog::detach<U>{object});
+		static_cast<T*>(this)->update(clg::detach<U>{object});
 	}
 
 	std::unordered_map<size_t, cn> attached_objects_;
 };
 
-} // clog
+} // clg

@@ -5,7 +5,7 @@
 #include <unordered_map>
 #include "rcv.hpp"
 
-namespace clog {
+namespace clg {
 
 using task_t = std::function<void()>;
 template <typename LockFreeQueue> class lock_free_task_pusher_static;
@@ -29,9 +29,9 @@ public:
 
 private:
 
-	auto push(clog::rcv_handle handle, lock_free_task task) -> void;
-	auto release_static_pusher(clog::rcv_handle handle) -> void;
-	auto release_dynamic_pusher(clog::rcv_handle, int dynamic_pusher_id) -> void;
+	auto push(clg::rcv_handle handle, lock_free_task task) -> void;
+	auto release_static_pusher(clg::rcv_handle handle) -> void;
+	auto release_dynamic_pusher(clg::rcv_handle, int dynamic_pusher_id) -> void;
 	auto next_dynamic_pusher_id() -> int;
 
 	struct queue
@@ -49,7 +49,7 @@ private:
 		std::vector<int> dead_dynamic_pushers_;
 	};
 
-	clog::unsafe_rcv<queue> queues_;
+	clg::unsafe_rcv<queue> queues_;
 	int next_dynamic_pusher_id_{0};
 
 	friend class lock_free_task_pusher_static<LockFreeQueue>;
@@ -62,7 +62,7 @@ public:
 
 	lock_free_task_pusher_static() = default;
 	lock_free_task_pusher_static(lock_free_task_pusher_static<LockFreeQueue>&& rhs) noexcept;
-	lock_free_task_pusher_static(lock_free_task_processor<LockFreeQueue>* processor, clog::rcv_handle handle);
+	lock_free_task_pusher_static(lock_free_task_processor<LockFreeQueue>* processor, clg::rcv_handle handle);
 	auto operator=(lock_free_task_pusher_static<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher_static<LockFreeQueue>&;
 	~lock_free_task_pusher_static();
 
@@ -76,7 +76,7 @@ private:
 	auto release_dynamic_pusher(int dynamic_pusher_id) -> void;
 
 	lock_free_task_processor<LockFreeQueue>* processor_{};
-	clog::rcv_handle handle_;
+	clg::rcv_handle handle_;
 
 	friend class lock_free_task_pusher_dynamic<LockFreeQueue>;
 };
@@ -110,8 +110,8 @@ public:
 
 private:
 
-	auto push(clog::rcv_handle handle, task_t task) -> void;
-	auto release(clog::rcv_handle handle) -> void;
+	auto push(clg::rcv_handle handle, task_t task) -> void;
+	auto release(clg::rcv_handle handle) -> void;
 
 	struct queue
 	{
@@ -127,7 +127,7 @@ private:
 		std::mutex mutex_;
 	};
 
-	clog::unsafe_rcv<queue> queues_;
+	clg::unsafe_rcv<queue> queues_;
 	std::mutex mutex_;
 
 	friend class locking_task_pusher;
@@ -139,7 +139,7 @@ public:
 
 	locking_task_pusher() = default;
 	locking_task_pusher(locking_task_pusher&& rhs) noexcept;
-	locking_task_pusher(locking_task_processor* processor, clog::rcv_handle handle);
+	locking_task_pusher(locking_task_processor* processor, clg::rcv_handle handle);
 	auto operator=(locking_task_pusher&& rhs) noexcept -> locking_task_pusher&;
 	~locking_task_pusher();
 
@@ -149,7 +149,7 @@ public:
 private:
 
 	locking_task_processor* processor_{};
-	clog::rcv_handle handle_;
+	clg::rcv_handle handle_;
 };
 
 class serial_task_processor
@@ -198,7 +198,7 @@ private:
 		task_vector pushed_while_processing_;
 	};
 
-	clog::unsafe_rcv<slot> slots_;
+	clg::unsafe_rcv<slot> slots_;
 	std::vector<rcv_handle> busy_slots_;
 	int total_tasks_{ 0 };
 
@@ -307,19 +307,19 @@ inline auto lock_free_task_processor<LockFreeQueue>::make_pusher(size_t max_size
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::push(clog::rcv_handle handle, lock_free_task task) -> void
+inline auto lock_free_task_processor<LockFreeQueue>::push(clg::rcv_handle handle, lock_free_task task) -> void
 {
 	queues_.get(handle)->push(task);
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::release_static_pusher(clog::rcv_handle handle) -> void
+inline auto lock_free_task_processor<LockFreeQueue>::release_static_pusher(clg::rcv_handle handle) -> void
 {
 	queues_.release(handle);
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::release_dynamic_pusher(clog::rcv_handle handle, int dynamic_pusher_id) -> void
+inline auto lock_free_task_processor<LockFreeQueue>::release_dynamic_pusher(clg::rcv_handle handle, int dynamic_pusher_id) -> void
 {
 	queues_.get(handle)->release_dynamic_pusher(dynamic_pusher_id);
 }
@@ -351,7 +351,7 @@ inline lock_free_task_pusher_static<LockFreeQueue>::lock_free_task_pusher_static
 }
 
 template <typename LockFreeQueue>
-inline lock_free_task_pusher_static<LockFreeQueue>::lock_free_task_pusher_static(lock_free_task_processor<LockFreeQueue>* processor, clog::rcv_handle handle)
+inline lock_free_task_pusher_static<LockFreeQueue>::lock_free_task_pusher_static(lock_free_task_processor<LockFreeQueue>* processor, clg::rcv_handle handle)
 	: processor_{processor}
 	, handle_{handle}
 {
@@ -510,14 +510,14 @@ inline auto locking_task_processor::make_pusher() -> locking_task_pusher
 	return locking_task_pusher(this, handle);
 }
 
-inline auto locking_task_processor::push(clog::rcv_handle handle, task_t task) -> void
+inline auto locking_task_processor::push(clg::rcv_handle handle, task_t task) -> void
 {
 	std::unique_lock lock{mutex_};
 
 	queues_.get(handle)->push(task);
 }
 
-inline auto locking_task_processor::release(clog::rcv_handle handle) -> void
+inline auto locking_task_processor::release(clg::rcv_handle handle) -> void
 {
 	std::unique_lock lock{mutex_};
 
@@ -544,7 +544,7 @@ inline locking_task_pusher::locking_task_pusher(locking_task_pusher&& rhs) noexc
 	rhs.processor_ = {};
 }
 
-inline locking_task_pusher::locking_task_pusher(locking_task_processor* processor, clog::rcv_handle handle)
+inline locking_task_pusher::locking_task_pusher(locking_task_processor* processor, clg::rcv_handle handle)
 	: processor_{processor}
 	, handle_{handle}
 {
@@ -830,13 +830,13 @@ inline auto serial_task_pusher::release() -> void
 	processor_ = {};
 }
 
-} // clog
+} // clg
 
-#if defined(CLOG_WITH_MOODYCAMEL)
+#if defined(clg_WITH_MOODYCAMEL)
 
 #include <readerwriterqueue.h>
 
-namespace clog {
+namespace clg {
 
 struct moodycamel_rwq
 {
@@ -871,6 +871,6 @@ using lock_free_task_processor_mc = lock_free_task_processor<moodycamel_rwq>;
 using lock_free_task_pusher_static_mc = lock_free_task_pusher_static<moodycamel_rwq>;
 using lock_free_task_pusher_dynamic_mc = lock_free_task_pusher_dynamic<moodycamel_rwq>;
 
-} // clog
+} // clg
 
-#endif // defined(CLOG_WITH_MOODYCAMEL)
+#endif // defined(clg_WITH_MOODYCAMEL)

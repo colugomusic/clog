@@ -5,7 +5,7 @@
 #include <functional>
 #include "vectors.hpp"
 
-namespace clog {
+namespace clg {
 
 template <typename T, typename Compare> class tree;
 template <typename T, typename Compare> class tree_node;
@@ -423,4 +423,4 @@ private:
 	Compare compare_;
 };
 
-} // clog
+} // clg

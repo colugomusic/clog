@@ -4,7 +4,7 @@
 #include <cassert>
 #include <vector>
 
-namespace clog {
+namespace clg {
 namespace vectors {
 namespace sorted {
 
@@ -183,7 +183,7 @@ struct vector : public std::vector<T>
 
 	auto contains(const T& value) const -> bool
 	{
-		return clog::vectors::sorted::contains(static_cast<base_t>(*this), value, Compare{});
+		return clg::vectors::sorted::contains(static_cast<base_t>(*this), value, Compare{});
 	}
 
 	auto insert(const T& value) -> void
@@ -211,4 +211,4 @@ namespace vs = vectors::sorted;
 namespace vsu = vectors::sorted::unique;
 namespace vsuc = vectors::sorted::unique::checked;
 
-} // clog
+} // clg

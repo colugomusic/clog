@@ -3,7 +3,7 @@
 #include <functional>
 #include <vector>
 
-namespace clog {
+namespace clg {
 
 template <typename T>
 class pool
@@ -71,4 +71,4 @@ private:
 	make_fn_t make_fn_;
 };
 
-} // clog
+} // clg
