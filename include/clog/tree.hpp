@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <deque>
 #include <functional>
+#include <memory>
 #include "vectors.hpp"
 
 namespace clg {
