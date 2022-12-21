@@ -873,4 +873,4 @@ using lock_free_task_pusher_dynamic_mc = lock_free_task_pusher_dynamic<moodycame
 
 } // clg
 
-#endif // defined(clg_WITH_MOODYCAMEL)
+#endif // defined(CLOG_WITH_MOODYCAMEL)
