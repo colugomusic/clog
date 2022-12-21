@@ -832,7 +832,7 @@ inline auto serial_task_pusher::release() -> void
 
 } // clg
 
-#if defined(clg_WITH_MOODYCAMEL)
+#if defined(CLOG_WITH_MOODYCAMEL)
 
 #include <readerwriterqueue.h>
 
