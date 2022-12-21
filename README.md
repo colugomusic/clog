@@ -88,9 +88,9 @@ ptr->bar();
 
 Note that the memory of the released cell is not freed, but the destructor will be run so there will be no object there anymore. If `acquire()` is called later, the new element might be constructed at that newly opened cell, and the handle pointing to that index would become valid again.
 
-### `clog::unsafe_rcv<T>`
+### `clg::unsafe_rcv<T>`
 
-There is another class in `clog::` named `unsafe_rcv`. The only difference between `rcv` and `unsafe_rcv` is that `rcv::get()` will check that the given handle is valid and return `nullptr` if not. The expense of doing this is a binary search over a sorted vector of known valid handles. In cases where you know your handles are always valid then you might as well use `unsafe_rcv`.
+There is another class in `clg::` named `unsafe_rcv`. The only difference between `rcv` and `unsafe_rcv` is that `rcv::get()` will check that the given handle is valid and return `nullptr` if not. The expense of doing this is a binary search over a sorted vector of known valid handles. In cases where you know your handles are always valid then you might as well use `unsafe_rcv`.
 
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
@@ -111,7 +111,7 @@ Disadvantages:
 Some quirks of this library:
 - Signals and connections are moveable but not copyable
 - Connections are always scoped, i.e. you get a connection object which automatically disconnects the slot when it goes out of scope. You can't simply set and forget a connection. Connection methods are marked with `[nodiscard]]` so you have to do something with the result. This may be annoying in cases where you know the signal won't outlive the slot but in my opinion it is worth it to be less error prone.
-- There's no `disconnect` method. Disconnects happen automatically when the `clog::cn` goes out of scope. If you want to explicitly disconnect you can just do `connection = {};`
+- There's no `disconnect` method. Disconnects happen automatically when the `clg::cn` goes out of scope. If you want to explicitly disconnect you can just do `connection = {};`
 - Connecting more slots while the signal is emitting is supported.
 - Disconnecting a slot while the signal is emitting is supported, but is not optimal. (The signal will take a temporary copy of all its current connections to work around a corner case where deleting the function object would cause the signal itself to be deleted.)
 - Slots will not necessarily be visited in the same order that they were connected.
@@ -119,9 +119,9 @@ Some quirks of this library:
 ```c++
 struct emitter
 {
-  clog::signal<std::string> hello;
-  clog::signal<std::string, int> goodbye;
-  clog::signal<> trigger;
+  clg::signal<std::string> hello;
+  clg::signal<std::string, int> goodbye;
+  clg::signal<> trigger;
   
   auto do_things() -> void
   {
@@ -137,9 +137,9 @@ struct receiver
   // destructed then the slots will be automatically
   // disconnected. It's ok if the connected signals
   // are destroyed first.
-  clog::cn hello_connection;
-  clog::cn goodbye_connection;
-  clog::cn trigger_connection;
+  clg::cn hello_connection;
+  clg::cn goodbye_connection;
+  clg::cn trigger_connection;
   
   auto attach(emitter* e) -> void
   {
@@ -168,10 +168,10 @@ struct receiver
 };
 
 // An alternative way of storing the connections,
-// using clog::store and the += operator
+// using clg::store and the += operator
 struct receiver2
 {
-  clog::store cns;
+  clg::store cns;
   
   auto attach(emitter* e) -> void
   {
@@ -199,22 +199,22 @@ It's a library on top of [signal.hpp](#signalhpp) which lets you do this kind of
 struct animal
 {
   // a getter and setter. Any time the value changes a signal is emitted.
-  clog::property<string> name{"unnamed");
+  clg::property<string> name{"unnamed");
  
   // this one has no interface for setting the value, only for getting it.
-  // to set the value you need to create a clog::setter for it.
-  clog::readonly_property<int> age;
+  // to set the value you need to create a clg::setter for it.
+  clg::readonly_property<int> age;
   
   // instead of storing a value, this one stores a function for retrieving
   // the value.
-  clog::proxy_property<string> description;
+  clg::proxy_property<string> description;
   
 private:
   
   // a private setter for setting the value of the age property.
-  clog::setter<int> age_setter_ { &age };
+  clg::setter<int> age_setter_ { &age };
 
-  clog::store cns_;
+  clg::store cns_;
   
 public:
 
@@ -276,7 +276,7 @@ public:
 ...
 
 animal a;
-clog::store cns;
+clg::store cns;
 
 const auto on_desc_changed = [](function<string()> get)
 {
@@ -299,27 +299,27 @@ a.name = "Harold"; // both those lambdas will be called
 
 Requires: [signal.hpp](#signalhpp), [rcv.hpp](#rcvhpp), [vectors.hpp](include/clog/vectors.hpp)
 
-If you inherit from `clog::expirable` you can call `expire()` on it to emit a one-shot "expiry" signal. Repeated calls to `expire()` won't do anything. The expiry signal is automatically emitted when the object is destructed, if `expire()` was not already called explicitly.
+If you inherit from `clg::expirable` you can call `expire()` on it to emit a one-shot "expiry" signal. Repeated calls to `expire()` won't do anything. The expiry signal is automatically emitted when the object is destructed, if `expire()` was not already called explicitly.
 
-A type inheriting from `clog::attacher` can have expirable objects "attached" to it. When the object expires, it is automatically "detached". Objects can also be detached manually.
+A type inheriting from `clg::attacher` can have expirable objects "attached" to it. When the object expires, it is automatically "detached". Objects can also be detached manually.
 
-When an object is attached, `update(clog::attach<T>)` is called. When an object is detached, `update(clog::detach<T>)` is called.
+When an object is attached, `update(clg::attach<T>)` is called. When an object is detached, `update(clg::detach<T>)` is called.
 
 T doesn't need to be a pointer type, but `std::hash<T>` needs to be defined.
 
 ```c++
-struct animal : public clog::expirable
+struct animal : public clg::expirable
 {
   ...
 };
 
-struct house : public clog::attacher<house>
+struct house : public clg::attacher<house>
 {
   unordered_set<animal*> animals;
-  unordered_map<ID, clog::store> animal_connections;
+  unordered_map<ID, clg::store> animal_connections;
   
   // Called when an animal is attached
-  auto update(clog::attach<animal*> a) -> void
+  auto update(clg::attach<animal*> a) -> void
   {
     animals.insert(a);
     
@@ -333,7 +333,7 @@ struct house : public clog::attacher<house>
   }
   
   // Will be called when the animal expires
-  auto update(clog::detach<animal*> a) -> void
+  auto update(clg::detach<animal*> a) -> void
   {
     animals.erase(a);
     animal_connections.erase(a->id);
@@ -348,7 +348,7 @@ house h;
   animal b;
   animal c;
 
-  // Attach objects. Calls house::update(clog::attach<animal*>)
+  // Attach objects. Calls house::update(clg::attach<animal*>)
   h << &a;
   h << &b;
   h << &c;
@@ -356,7 +356,7 @@ house h;
   // Manually detach an object
   h >> &c;
   
-  // house::update(clog::detach<animal*>) will be called twice at the end of this scope (for a and b)
+  // house::update(clg::detach<animal*>) will be called twice at the end of this scope (for a and b)
 } 
 ```
 
@@ -366,7 +366,7 @@ house h;
 A value, a dirty flag and a function object to update the value. I write a version of this in all my projects so here it is.
 
 ```c++
-clog::cached<string> text;
+clg::cached<string> text;
 
 text = []()
 {
@@ -425,7 +425,7 @@ struct Item
 	}
 };
 
-clog::tree<Item> tree{Item{"one", 1}};
+clg::tree<Item> tree{Item{"one", 1}};
 
 // Calling add() on the tree object always adds to the root node
 tree.add(Item{"two", 2}, Item{"five", 5}, Item{"nine", 9});
