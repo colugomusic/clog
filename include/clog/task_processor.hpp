@@ -40,6 +40,10 @@ class serial_task_pusher;
 // own queue onto which it will push tasks.
 //
 // You can create more pushers while the producer thread is already pushing tasks.
+// 
+// Tasks are not processed if the pusher through which they were pushed goes out of
+// scope. So it is straightforward to push a lambda which captures 'this' without
+// having to worry about 'this' being deleted.
 //
 // Pusher queues will automatically double in size if they reach half-capacity.
 // This happens in the consumer thread when you call process_all().
