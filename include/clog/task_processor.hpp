@@ -39,9 +39,7 @@ class serial_task_pusher;
 // pusher.push(task) in the producer thread to push a task. Each pusher gets its
 // own queue onto which it will push tasks.
 //
-// You can create more pushers while the producer thread is already pushing tasks,
-// but you must call process_all() at least once before pushing any tasks with the
-// newly created pusher.
+// You can create more pushers while the producer thread is already pushing tasks.
 //
 // Pusher queues will automatically double in size if they reach half-capacity.
 // This happens in the consumer thread when you call process_all().
@@ -55,6 +53,41 @@ class serial_task_pusher;
 // a task onto a full queue is an assertion failure. If _DEBUG is not defined then
 // the producer thread will allocate memory for the task (bad!)
 // 
+
+namespace detail {
+
+template <typename LockFreeQueue>
+struct lock_free_growing_queue
+{
+	lock_free_growing_queue(size_t initial_size);
+
+	auto process_all() -> void;
+	auto process_all(LockFreeQueue* q) -> void;
+	auto push(task_t task) -> void;
+	auto get_size() const { return size_; }
+
+private:
+
+	size_t size_;
+	std::array<LockFreeQueue, 2> queue_pair_;
+	std::atomic<size_t> push_index_{0};
+};
+
+template <typename LockFreeQueue>
+struct lock_free_pusher_body
+{
+	lock_free_growing_queue<LockFreeQueue> q;
+	size_t index;
+
+	lock_free_pusher_body(size_t index_, size_t initial_size)
+		: index{index_}
+		, q{initial_size}
+	{
+	}
+};
+
+} // detail
+
 template <typename LockFreeQueue>
 class lock_free_task_processor
 {
@@ -65,31 +98,9 @@ public:
 
 private:
 
-	auto push(clg::rcv_handle handle, task_t task) -> void;
-	auto release_pusher(clg::rcv_handle handle) -> void;
+	auto release_pusher(size_t index) -> void;
 
-	struct queue
-	{
-		queue(size_t initial_size);
-		queue(queue&&) noexcept = default;
-
-		auto process_all() -> void;
-		auto process_all(LockFreeQueue* q) -> void;
-		auto push(task_t task) -> void;
-		auto get_size() const { return size_; }
-
-	private:
-
-		size_t size_;
-		std::array<LockFreeQueue, 2> queue_pair_;
-		std::atomic<size_t> push_index_{0};
-	};
-
-	using queue_vector = clg::unsafe_rcv<std::unique_ptr<queue>>;
-
-	bool overflow_{false};
-	std::array<queue_vector, 2> queue_vec_pair_;
-	std::atomic<size_t> push_index_{0};
+	std::vector<std::unique_ptr<detail::lock_free_pusher_body<LockFreeQueue>>> pushers_;
 
 	friend class lock_free_task_pusher<LockFreeQueue>;
 };
@@ -101,7 +112,7 @@ public:
 
 	lock_free_task_pusher() = default;
 	lock_free_task_pusher(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept;
-	lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, clg::rcv_handle handle);
+	lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, detail::lock_free_pusher_body<LockFreeQueue>* body);
 	auto operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&;
 	~lock_free_task_pusher();
 
@@ -111,21 +122,23 @@ public:
 private:
 
 	lock_free_task_processor<LockFreeQueue>* processor_{};
-	clg::rcv_handle handle_;
+	detail::lock_free_pusher_body<LockFreeQueue>* body_{};
 };
 
+namespace detail {
+
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
-// lock-free processor queue
+// lock-free growing queue
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 template <typename LockFreeQueue>
-inline lock_free_task_processor<LockFreeQueue>::queue::queue(size_t initial_size)
+lock_free_growing_queue<LockFreeQueue>::lock_free_growing_queue(size_t initial_size)
 	: size_{initial_size}
 	, queue_pair_{LockFreeQueue{initial_size}, LockFreeQueue{}}
 {
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::queue::process_all(LockFreeQueue* q) -> void
+auto lock_free_growing_queue<LockFreeQueue>::process_all(LockFreeQueue* q) -> void
 {
 	task_t task;
 
@@ -136,7 +149,7 @@ inline auto lock_free_task_processor<LockFreeQueue>::queue::process_all(LockFree
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::queue::process_all() -> void
+auto lock_free_growing_queue<LockFreeQueue>::process_all() -> void
 {
 	if (queue_pair_[push_index_].get_size_approx() > size_ / 2)
 	{
@@ -155,105 +168,46 @@ inline auto lock_free_task_processor<LockFreeQueue>::queue::process_all() -> voi
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::queue::push(task_t task) -> void
+auto lock_free_growing_queue<LockFreeQueue>::push(task_t task) -> void
 {
 	queue_pair_[push_index_].push(std::move(task));
 }
+
+} // detail
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 // lock-free processor
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::make_pusher(size_t initial_size) -> lock_free_task_pusher<LockFreeQueue>
+auto lock_free_task_processor<LockFreeQueue>::make_pusher(size_t initial_size) -> lock_free_task_pusher<LockFreeQueue>
 {
-	const size_t push_index{push_index_};
+	auto body{std::make_unique<detail::lock_free_pusher_body<LockFreeQueue>>(pushers_.size(), initial_size)};
+	const auto ptr{body.get()};
 
-	if (!overflow_)
-	{
-		queue_vector& push_queue_vec{queue_vec_pair_[push_index]};
+	pushers_.push_back(std::move(body));
 
-		if (push_queue_vec.size() < push_queue_vec.capacity())
-		{
-			return lock_free_task_pusher(this, push_queue_vec.acquire(new queue{initial_size}));
-		}
-
-		queue_vector& overflow_queue_vec{queue_vec_pair_[1 - push_index]};
-
-		overflow_queue_vec.reserve(std::max(push_queue_vec.capacity(), size_t(1)) * 2);
-
-		for (const auto handle : push_queue_vec.active_handles())
-		{
-			overflow_queue_vec.acquire_at(handle, new queue{(*push_queue_vec.get(handle))->get_size()});
-		}
-
-#		if defined(_DEBUG)
-			std::cout << "Resized queue vector to " << overflow_queue_vec.capacity() << "\n";
-#		endif
-
-		overflow_ = true;
-
-		return lock_free_task_pusher(this, overflow_queue_vec.acquire(new queue{initial_size}));
-	}
-
-	queue_vector& overflow_queue_vec{queue_vec_pair_[1 - push_index]};
-
-	if (overflow_queue_vec.size() == overflow_queue_vec.capacity())
-	{
-		const queue_vector& push_queue_vec{queue_vec_pair_[push_index]};
-
-		overflow_queue_vec.reserve(std::max(overflow_queue_vec.capacity(), size_t(1)) * 2);
-
-#		if defined(_DEBUG)
-			std::cout << "Resized queue vector to " << overflow_queue_vec.capacity() << "\n";
-#		endif
-	}
-
-	return lock_free_task_pusher(this, overflow_queue_vec.acquire(new queue{initial_size}));
+	return lock_free_task_pusher<LockFreeQueue>(this, ptr);
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::push(clg::rcv_handle handle, task_t task) -> void
+auto lock_free_task_processor<LockFreeQueue>::release_pusher(size_t index) -> void
 {
-	auto& queue_vec{queue_vec_pair_[push_index_]};
+	pushers_.erase(pushers_.begin() + index);
 
-	(*queue_vec.get(handle))->push(task);
-}
+	index = 0;
 
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::release_pusher(clg::rcv_handle handle) -> void
-{
-	const size_t push_index{push_index_};
-
-	queue_vec_pair_[push_index].release(handle);
-
-	if (overflow_)
+	for (const auto& pusher : pushers_)
 	{
-		queue_vec_pair_[1 - push_index].release(handle);
+		pusher->index = index++;
 	}
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::process_all() -> void
+auto lock_free_task_processor<LockFreeQueue>::process_all() -> void
 {
-	if (overflow_)
+	for (const auto& pusher : pushers_)
 	{
-		push_index_ = 1 - push_index_;
-
-		auto& queue_vec{queue_vec_pair_[1 - push_index_]};
-
-		for (const auto handle : queue_vec.active_handles())
-		{
-			(*queue_vec.get(handle))->process_all();
-		}
-
-		overflow_ = false;
-	}
-
-	auto& queue_vec{queue_vec_pair_[push_index_]};
-
-	for (const auto handle : queue_vec.active_handles())
-	{
-		(*queue_vec.get(handle))->process_all();
+		pusher->q.process_all();
 	}
 }
 
@@ -261,32 +215,32 @@ inline auto lock_free_task_processor<LockFreeQueue>::process_all() -> void
 // lock-free pusher
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 template <typename LockFreeQueue>
-inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept
+lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept
 	: processor_{rhs.processor_}
-	, handle_{rhs.handle_}
+	, body_{rhs.body_}
 {
 	rhs.processor_ = {};
 }
 
 template <typename LockFreeQueue>
-inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, clg::rcv_handle handle)
+lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, detail::lock_free_pusher_body<LockFreeQueue>* body)
 	: processor_{processor}
-	, handle_{handle}
+	, body_{body}
 {
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_pusher<LockFreeQueue>::operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&
+auto lock_free_task_pusher<LockFreeQueue>::operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&
 {
 	processor_ = rhs.processor_;
-	handle_ = rhs.handle_;
+	body_ = rhs.body_;
 	rhs.processor_ = {};
 
 	return *this;
 }
 
 template <typename LockFreeQueue>
-inline lock_free_task_pusher<LockFreeQueue>::~lock_free_task_pusher()
+lock_free_task_pusher<LockFreeQueue>::~lock_free_task_pusher()
 {
 	if (!processor_) return;
 
@@ -294,17 +248,17 @@ inline lock_free_task_pusher<LockFreeQueue>::~lock_free_task_pusher()
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_pusher<LockFreeQueue>::push(task_t task) -> void
+auto lock_free_task_pusher<LockFreeQueue>::push(task_t task) -> void
 {
 	if (!processor_) return;
 
-	processor_->push(handle_, task);
+	body_->q.push(task);
 }
 
 template <typename LockFreeQueue>
-inline auto lock_free_task_pusher<LockFreeQueue>::release() -> void
+auto lock_free_task_pusher<LockFreeQueue>::release() -> void
 {
-	processor_->release_pusher(handle_);
+	processor_->release_pusher(body_->index);
 
 	processor_ = {};
 }
