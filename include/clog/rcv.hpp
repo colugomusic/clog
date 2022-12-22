@@ -28,8 +28,8 @@ public:
 
 	rcv_buffer() = default;
 
-	rcv_buffer(size_t initial_size)
-		: buffer_size_{initial_size * sizeof(T)}
+	rcv_buffer(size_t size)
+		: buffer_size_{size * sizeof(T)}
 		, buffer_{allocate<T>(buffer_size_)}
 	{
 	}
@@ -141,6 +141,38 @@ private:
 	std::byte* buffer_{};
 };
 
+// Find the next available empty cell. If there are
+// no available cells, return buffer_.size().
+//
+// This algorithm isn't optimal (it's not necessary to
+// call lower_bound over and over like that.)
+//
+// I have a headache though
+template <typename Current>
+auto find_next_empty_cell(const Current& current, size_t buffer_capacity, size_t* next) -> size_t
+{
+	namespace cvs = clg::vectors::sorted;
+
+	const auto out { (*next)++ };
+	auto check_beg { std::cbegin(current) };
+	auto check_end { std::cend(current) };
+
+	while (true)
+	{
+		if (*next >= buffer_capacity) break;
+
+		// Check if this cell is occupied
+		check_beg = std::lower_bound(check_beg, check_end, *next);
+
+		if (check_beg == check_end) break;
+		if (*check_beg != *next) break;
+
+		(*next)++;
+	}
+
+	return out;
+}
+
 } // detail
 
 struct rcv_default_resize_strategy
@@ -183,6 +215,26 @@ public:
 		}
 	}
 
+	auto operator=(const unsafe_rcv& rhs) -> unsafe_rcv&
+	{
+		next_ = rhs.next_;
+		buffer_ = rhs.buffer_.size();
+		current_ = rhs.current_;
+
+		if constexpr (std::is_trivially_copy_constructible_v<T>)
+		{
+			buffer_.set(rhs.buffer_);
+			return *this;
+		}
+
+		for (const auto index : current_)
+		{
+			buffer_.construct_at(index, rhs.buffer_[index]);
+		}
+
+		return *this;
+	}
+
 	~unsafe_rcv()
 	{
 		for (const auto index : current_)
@@ -203,7 +255,7 @@ public:
 
 	auto reserve(size_t size) -> void
 	{
-		buffer_.resize(size);
+		resize(size);
 	}
 
 	auto size() const
@@ -220,6 +272,17 @@ public:
 		{
 			resize(ResizeStrategy::resize(buffer_.size(), index + 1));
 		}
+
+		current_.insert(index);
+		buffer_.construct_at(index, constructor_args...);
+
+		return index;
+	}
+
+	template <typename... ConstructorArgs>
+	auto acquire_at(size_t index, ConstructorArgs... constructor_args) -> handle_t
+	{
+		assert (!clg::vectors::sorted::contains(current_, index));
 
 		current_.insert(index);
 		buffer_.construct_at(index, constructor_args...);
@@ -244,37 +307,17 @@ public:
 		return &buffer_[index];
 	}
 
+	auto get(handle_t index) const -> const T*
+	{
+		assert (clg::vectors::sorted::contains(current_, index));
+		return &buffer_[index];
+	}
+
 private:
 
-	// Find the next available empty cell. If there are
-	// no available cells, return buffer_.size().
-	//
-	// This algorithm isn't optimal (it's not necessary to
-	// call lower_bound over and over like that.)
-	//
-	// I have a headache though
 	auto next() -> size_t
 	{
-		namespace cvs = clg::vectors::sorted;
-
-		const auto out { next_++ };
-		auto check_beg { std::cbegin(current_) };
-		auto check_end { std::cend(current_) };
-
-		while (true)
-		{
-			if (next_ >= buffer_.size()) break;
-
-			// Check if this cell is occupied
-			check_beg = std::lower_bound(check_beg, check_end, next_);
-
-			if (check_beg == check_end) break;
-			if (*check_beg != next_) break;
-
-			next_++;
-		}
-
-		return out;
+		return detail::find_next_empty_cell(current_, capacity(), &next_);
 	}
 
 	auto resize(size_t new_size) -> void
