@@ -1,105 +1,317 @@
 #pragma once
 
+#include <array>
 #include <functional>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include "rcv.hpp"
 
+#if defined(_DEBUG)
+#include <iostream>
+#endif
+
 namespace clg {
 
 using task_t = std::function<void()>;
-template <typename LockFreeQueue> class lock_free_task_pusher_static;
-template <typename LockFreeQueue> class lock_free_task_pusher_dynamic;
+template <typename LockFreeQueue> class lock_free_task_pusher;
 class locking_task_pusher;
 class serial_task_pusher;
 
-struct lock_free_task
-{
-	int dynamic_pusher_id;
-	task_t task;
-};
 
+////////////////////////////////////////////////////////////////////////////////////
+// Lock-free ///////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+//
+// Single-consumer, single-producer task processing multi-queue.
+// 
+// You have to provide your own lock-free queue implementation. If you have
+// github:cameron314/readerwriterqueue in your include paths and define
+// CLOG_WITH_MOODYCAMEL then an implementation will be provided for you (at the
+// bottom of this file.)
+// 
+// The consumer allocates memory and the producer does not.
+//
+// Process tasks by calling process_all() in the consumer thread.
+// 
+// To push tasks onto the queue you have to create a pusher. Create pushers in the
+// consumer thread by calling make_pusher(initial_size), then call
+// pusher.push(task) in the producer thread to push a task. Each pusher gets its
+// own queue onto which it will push tasks.
+//
+// You can create more pushers while the producer thread is already pushing tasks,
+// but you must call process_all() at least once before pushing any tasks with the
+// newly created pusher.
+//
+// Pusher queues will automatically double in size if they reach half-capacity.
+// This happens in the consumer thread when you call process_all().
+// 
+// The point of the doubling-at-half-capacity idea is to prevent the pusher queues
+// from ever filling up, but if you are not calling process_all() regularly enough
+// then it could still happen! It is up to the queue implementation what happens
+// in this case.
+// 
+// In the provided moodycamel implementation, if _DEBUG is defined then pushing
+// a task onto a full queue is an assertion failure. If _DEBUG is not defined then
+// the producer thread will allocate memory for the task (bad!)
+// 
 template <typename LockFreeQueue>
 class lock_free_task_processor
 {
 public:
 
-	auto make_pusher(size_t max_size) -> lock_free_task_pusher_static<LockFreeQueue>;
+	auto make_pusher(size_t initial_size) -> lock_free_task_pusher<LockFreeQueue>;
 	auto process_all() -> void;
 
 private:
 
-	auto push(clg::rcv_handle handle, lock_free_task task) -> void;
-	auto release_static_pusher(clg::rcv_handle handle) -> void;
-	auto release_dynamic_pusher(clg::rcv_handle, int dynamic_pusher_id) -> void;
-	auto next_dynamic_pusher_id() -> int;
+	auto push(clg::rcv_handle handle, task_t task) -> void;
+	auto release_pusher(clg::rcv_handle handle) -> void;
 
 	struct queue
 	{
-		queue(size_t max_size);
+		queue(size_t initial_size);
 		queue(queue&&) noexcept = default;
 
 		auto process_all() -> void;
-		auto push(lock_free_task task) -> void;
-		auto release_dynamic_pusher(int dynamic_pusher_id) -> void;
+		auto process_all(LockFreeQueue* q) -> void;
+		auto push(task_t task) -> void;
+		auto get_size() const { return size_; }
 
 	private:
 
-		LockFreeQueue queue_;
-		std::vector<int> dead_dynamic_pushers_;
+		size_t size_;
+		std::array<LockFreeQueue, 2> queue_pair_;
+		std::atomic<size_t> push_index_{0};
 	};
 
-	clg::unsafe_rcv<queue> queues_;
-	int next_dynamic_pusher_id_{0};
+	using queue_vector = clg::unsafe_rcv<std::unique_ptr<queue>>;
 
-	friend class lock_free_task_pusher_static<LockFreeQueue>;
+	bool overflow_{false};
+	std::array<queue_vector, 2> queue_vec_pair_;
+	std::atomic<size_t> push_index_{0};
+
+	friend class lock_free_task_pusher<LockFreeQueue>;
 };
 
 template <typename LockFreeQueue>
-class lock_free_task_pusher_static
+class lock_free_task_pusher
 {
 public:
 
-	lock_free_task_pusher_static() = default;
-	lock_free_task_pusher_static(lock_free_task_pusher_static<LockFreeQueue>&& rhs) noexcept;
-	lock_free_task_pusher_static(lock_free_task_processor<LockFreeQueue>* processor, clg::rcv_handle handle);
-	auto operator=(lock_free_task_pusher_static<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher_static<LockFreeQueue>&;
-	~lock_free_task_pusher_static();
+	lock_free_task_pusher() = default;
+	lock_free_task_pusher(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept;
+	lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, clg::rcv_handle handle);
+	auto operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&;
+	~lock_free_task_pusher();
 
 	auto push(task_t task) -> void;
-	auto make_pusher() -> lock_free_task_pusher_dynamic<LockFreeQueue>;
 	auto release() -> void;
 
 private:
-
-	auto push(lock_free_task task) -> void;
-	auto release_dynamic_pusher(int dynamic_pusher_id) -> void;
 
 	lock_free_task_processor<LockFreeQueue>* processor_{};
 	clg::rcv_handle handle_;
-
-	friend class lock_free_task_pusher_dynamic<LockFreeQueue>;
 };
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+// lock-free processor queue
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+template <typename LockFreeQueue>
+inline lock_free_task_processor<LockFreeQueue>::queue::queue(size_t initial_size)
+	: size_{initial_size}
+	, queue_pair_{LockFreeQueue{initial_size}, LockFreeQueue{}}
+{
+}
 
 template <typename LockFreeQueue>
-class lock_free_task_pusher_dynamic
+inline auto lock_free_task_processor<LockFreeQueue>::queue::process_all(LockFreeQueue* q) -> void
 {
-public:
+	task_t task;
 
-	lock_free_task_pusher_dynamic() = default;
-	lock_free_task_pusher_dynamic(lock_free_task_pusher_dynamic<LockFreeQueue>&& rhs) noexcept;
-	lock_free_task_pusher_dynamic(lock_free_task_pusher_static<LockFreeQueue>* static_pusher, int dynamic_pusher_id);
-	auto operator=(lock_free_task_pusher_dynamic<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher_dynamic<LockFreeQueue>&;
-	~lock_free_task_pusher_dynamic();
+	while (q->pop(&task))
+	{
+		task();
+	}
+}
 
-	auto push(task_t task) -> void;
-	auto release() -> void;
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::queue::process_all() -> void
+{
+	if (queue_pair_[push_index_].get_size_approx() > size_ / 2)
+	{
+		size_ *= 2;
+		queue_pair_[1 - push_index_] = LockFreeQueue{size_};
+		push_index_ = 1 - push_index_;
 
-private:
+#		if defined(_DEBUG)
+			std::cout << "Queue size increased to " << size_ << "\n";
+#		endif
 
-	lock_free_task_pusher_static<LockFreeQueue>* static_pusher_{};
-	int dynamic_pusher_id;
-};
+		process_all(&queue_pair_[1 - push_index_]);
+	}
+
+	process_all(&queue_pair_[push_index_]);
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::queue::push(task_t task) -> void
+{
+	queue_pair_[push_index_].push(std::move(task));
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+// lock-free processor
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::make_pusher(size_t initial_size) -> lock_free_task_pusher<LockFreeQueue>
+{
+	const size_t push_index{push_index_};
+
+	if (!overflow_)
+	{
+		queue_vector& push_queue_vec{queue_vec_pair_[push_index]};
+
+		if (push_queue_vec.size() < push_queue_vec.capacity())
+		{
+			return lock_free_task_pusher(this, push_queue_vec.acquire(new queue{initial_size}));
+		}
+
+		queue_vector& overflow_queue_vec{queue_vec_pair_[1 - push_index]};
+
+		overflow_queue_vec.reserve(std::max(push_queue_vec.capacity(), size_t(1)) * 2);
+
+		for (const auto handle : push_queue_vec.active_handles())
+		{
+			overflow_queue_vec.acquire_at(handle, new queue{(*push_queue_vec.get(handle))->get_size()});
+		}
+
+#		if defined(_DEBUG)
+			std::cout << "Resized queue vector to " << overflow_queue_vec.capacity() << "\n";
+#		endif
+
+		overflow_ = true;
+
+		return lock_free_task_pusher(this, overflow_queue_vec.acquire(new queue{initial_size}));
+	}
+
+	queue_vector& overflow_queue_vec{queue_vec_pair_[1 - push_index]};
+
+	if (overflow_queue_vec.size() == overflow_queue_vec.capacity())
+	{
+		const queue_vector& push_queue_vec{queue_vec_pair_[push_index]};
+
+		overflow_queue_vec.reserve(std::max(overflow_queue_vec.capacity(), size_t(1)) * 2);
+
+#		if defined(_DEBUG)
+			std::cout << "Resized queue vector to " << overflow_queue_vec.capacity() << "\n";
+#		endif
+	}
+
+	return lock_free_task_pusher(this, overflow_queue_vec.acquire(new queue{initial_size}));
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::push(clg::rcv_handle handle, task_t task) -> void
+{
+	auto& queue_vec{queue_vec_pair_[push_index_]};
+
+	(*queue_vec.get(handle))->push(task);
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::release_pusher(clg::rcv_handle handle) -> void
+{
+	const size_t push_index{push_index_};
+
+	queue_vec_pair_[push_index].release(handle);
+
+	if (overflow_)
+	{
+		queue_vec_pair_[1 - push_index].release(handle);
+	}
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_processor<LockFreeQueue>::process_all() -> void
+{
+	if (overflow_)
+	{
+		push_index_ = 1 - push_index_;
+
+		auto& queue_vec{queue_vec_pair_[1 - push_index_]};
+
+		for (const auto handle : queue_vec.active_handles())
+		{
+			(*queue_vec.get(handle))->process_all();
+		}
+
+		overflow_ = false;
+	}
+
+	auto& queue_vec{queue_vec_pair_[push_index_]};
+
+	for (const auto handle : queue_vec.active_handles())
+	{
+		(*queue_vec.get(handle))->process_all();
+	}
+}
+
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+// lock-free pusher
+//++++++++++++++++++++++++++++++++++++++++++++++++++++
+template <typename LockFreeQueue>
+inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept
+	: processor_{rhs.processor_}
+	, handle_{rhs.handle_}
+{
+	rhs.processor_ = {};
+}
+
+template <typename LockFreeQueue>
+inline lock_free_task_pusher<LockFreeQueue>::lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, clg::rcv_handle handle)
+	: processor_{processor}
+	, handle_{handle}
+{
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_pusher<LockFreeQueue>::operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&
+{
+	processor_ = rhs.processor_;
+	handle_ = rhs.handle_;
+	rhs.processor_ = {};
+
+	return *this;
+}
+
+template <typename LockFreeQueue>
+inline lock_free_task_pusher<LockFreeQueue>::~lock_free_task_pusher()
+{
+	if (!processor_) return;
+
+	release();
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_pusher<LockFreeQueue>::push(task_t task) -> void
+{
+	if (!processor_) return;
+
+	processor_->push(handle_, task);
+}
+
+template <typename LockFreeQueue>
+inline auto lock_free_task_pusher<LockFreeQueue>::release() -> void
+{
+	processor_->release_pusher(handle_);
+
+	processor_ = {};
+}
+
+////////////////////////////////////////////////////////////////////////////////////
+// Locking /////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
 
 class locking_task_processor
 {
@@ -151,319 +363,6 @@ private:
 	locking_task_processor* processor_{};
 	clg::rcv_handle handle_;
 };
-
-class serial_task_processor
-{
-public:
-
-	using index_t = size_t;
-
-	auto make_pusher() -> serial_task_pusher;
-	auto process_all() -> void;
-
-private:
-
-	auto get_empty_slot() -> rcv_handle;
-	auto push(rcv_handle slot, task_t task) -> void;
-	auto push(rcv_handle slot, task_t task, index_t index) -> void;
-	auto release(rcv_handle slot) -> int;
-
-	struct slot
-	{
-		auto clear() -> int;
-		auto is_empty() const -> bool;
-		auto process_all() -> int;
-		auto push(task_t task) -> int;
-		auto push(task_t task, index_t index) -> int;
-
-	private:
-
-		struct task_vector
-		{
-			auto clear() -> int;
-			auto process_all() -> int;
-			auto push(task_t task) -> int;
-			auto push(task_t task, index_t index) -> int;
-
-		private:
-
-			std::vector<task_t> tasks_;
-			std::vector<task_t> indexed_tasks_;
-			std::vector<index_t> indices_;
-		};
-
-		bool processing_{ false };
-		int total_tasks_{ 0 };
-		task_vector tasks_;
-		task_vector pushed_while_processing_;
-	};
-
-	clg::unsafe_rcv<slot> slots_;
-	std::vector<rcv_handle> busy_slots_;
-	int total_tasks_{ 0 };
-
-	friend class serial_task_pusher;
-};
-
-class serial_task_pusher
-{
-public:
-
-	serial_task_pusher() = default;
-	serial_task_pusher(serial_task_pusher&& rhs) noexcept;
-	serial_task_pusher(serial_task_processor* processor, rcv_handle slot);
-	auto operator=(serial_task_pusher&& rhs) noexcept -> serial_task_pusher&;
-	~serial_task_pusher();
-
-	auto push(task_t task) -> void;
-	auto push(serial_task_processor::index_t index, task_t task) -> void;
-
-	template <typename ConvertibleToindex_tType>
-	auto push(ConvertibleToindex_tType index, task_t task) -> void
-	{
-		push(static_cast<serial_task_processor::index_t>(index), task);
-	}
-
-	template <typename ConvertibleToindex_tType>
-	auto push(ConvertibleToindex_tType index) -> void
-	{
-		const auto index_conv { static_cast<serial_task_processor::index_t>(index) };
-
-		assert (premapped_tasks_.find(index_conv) != std::cend(premapped_tasks_));
-
-		push(index, premapped_tasks_[index_conv]);
-	}
-
-	auto release() -> void;
-
-	template <typename ConvertibleToindex_tType>
-	auto& operator[](ConvertibleToindex_tType index)
-	{
-		return premapped_tasks_[static_cast<serial_task_processor::index_t>(index)];
-	}
-
-	template <typename ConvertibleToIndex>
-	auto operator<<(ConvertibleToIndex index) -> void
-	{
-		push(index);
-	}
-
-	template <typename ConvertibleToIndex>
-	auto make_callable(ConvertibleToIndex index)
-	{
-		return [this, index]() { push(index); };
-	}
-
-private:
-
-	serial_task_processor* processor_{};
-	rcv_handle slot_;
-	std::unordered_map<serial_task_processor::index_t, task_t> premapped_tasks_;
-};
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++
-// lock-free processor queue
-//++++++++++++++++++++++++++++++++++++++++++++++++++++
-template <typename LockFreeQueue>
-inline lock_free_task_processor<LockFreeQueue>::queue::queue(size_t max_size)
-	: queue_{max_size}
-{
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::queue::process_all() -> void
-{
-	lock_free_task task;
-
-	while (queue_.pop(&task))
-	{
-		if (task.dynamic_pusher_id >= 0 && vs::contains(dead_dynamic_pushers_, task.dynamic_pusher_id)) continue;
-
-		task.task();
-	}
-
-	dead_dynamic_pushers_.clear();
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::queue::push(lock_free_task task) -> void
-{
-	queue_.push(std::move(task));
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::queue::release_dynamic_pusher(int dynamic_pusher_id) -> void
-{
-	vsuc::insert(&dead_dynamic_pushers_, dynamic_pusher_id);
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++
-// lock-free processor
-//++++++++++++++++++++++++++++++++++++++++++++++++++++
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::make_pusher(size_t max_size) -> lock_free_task_pusher_static<LockFreeQueue>
-{
-	return lock_free_task_pusher_static(this, queues_.acquire(max_size));
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::push(clg::rcv_handle handle, lock_free_task task) -> void
-{
-	queues_.get(handle)->push(task);
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::release_static_pusher(clg::rcv_handle handle) -> void
-{
-	queues_.release(handle);
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::release_dynamic_pusher(clg::rcv_handle handle, int dynamic_pusher_id) -> void
-{
-	queues_.get(handle)->release_dynamic_pusher(dynamic_pusher_id);
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::next_dynamic_pusher_id() -> int
-{
-	return next_dynamic_pusher_id_++;
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_processor<LockFreeQueue>::process_all() -> void
-{
-	for (const auto handle : queues_.active_handles())
-	{
-		queues_.get(handle)->process_all();
-	}
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++
-// lock-free pusher static
-//++++++++++++++++++++++++++++++++++++++++++++++++++++
-template <typename LockFreeQueue>
-inline lock_free_task_pusher_static<LockFreeQueue>::lock_free_task_pusher_static(lock_free_task_pusher_static<LockFreeQueue>&& rhs) noexcept
-	: processor_{rhs.processor_}
-	, handle_{rhs.handle_}
-{
-	rhs.processor_ = {};
-}
-
-template <typename LockFreeQueue>
-inline lock_free_task_pusher_static<LockFreeQueue>::lock_free_task_pusher_static(lock_free_task_processor<LockFreeQueue>* processor, clg::rcv_handle handle)
-	: processor_{processor}
-	, handle_{handle}
-{
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_static<LockFreeQueue>::operator=(lock_free_task_pusher_static<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher_static<LockFreeQueue>&
-{
-	processor_ = rhs.processor_;
-	handle_ = rhs.handle_;
-	rhs.processor_ = {};
-
-	return *this;
-}
-
-template <typename LockFreeQueue>
-inline lock_free_task_pusher_static<LockFreeQueue>::~lock_free_task_pusher_static()
-{
-	if (!processor_) return;
-
-	release();
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_static<LockFreeQueue>::make_pusher() -> lock_free_task_pusher_dynamic<LockFreeQueue>
-{
-	return {this, processor_->next_dynamic_pusher_id()};
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_static<LockFreeQueue>::push(task_t task) -> void
-{
-	if (!processor_) return;
-
-	processor_->push(handle_, lock_free_task{-1, task});
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_static<LockFreeQueue>::push(lock_free_task task) -> void
-{
-	if (!processor_) return;
-
-	processor_->push(handle_, task);
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_static<LockFreeQueue>::release() -> void
-{
-	processor_->release_static_pusher(handle_);
-
-	processor_ = {};
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_static<LockFreeQueue>::release_dynamic_pusher(int dynamic_pusher_id) -> void
-{
-	if (!processor_) return;
-
-	processor_->release_dynamic_pusher(handle_, dynamic_pusher_id);
-}
-
-//++++++++++++++++++++++++++++++++++++++++++++++++++++
-// lock-free pusher dynamic
-//++++++++++++++++++++++++++++++++++++++++++++++++++++
-template <typename LockFreeQueue>
-inline lock_free_task_pusher_dynamic<LockFreeQueue>::lock_free_task_pusher_dynamic(lock_free_task_pusher_dynamic<LockFreeQueue>&& rhs) noexcept
-	: static_pusher_{rhs.static_pusher_}
-	, dynamic_pusher_id{rhs.dynamic_pusher_id}
-{
-	rhs.static_pusher_ = {};
-}
-
-template <typename LockFreeQueue>
-inline lock_free_task_pusher_dynamic<LockFreeQueue>::lock_free_task_pusher_dynamic(lock_free_task_pusher_static<LockFreeQueue>* static_pusher, int dynamic_pusher_id)
-	: static_pusher_{static_pusher}
-	, dynamic_pusher_id{dynamic_pusher_id}
-{
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_dynamic<LockFreeQueue>::operator=(lock_free_task_pusher_dynamic<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher_dynamic<LockFreeQueue>&
-{
-	static_pusher_ = rhs.static_pusher_;
-	dynamic_pusher_id = rhs.dynamic_pusher_id;
-	rhs.static_pusher_ = {};
-
-	return *this;
-}
-
-template <typename LockFreeQueue>
-inline lock_free_task_pusher_dynamic<LockFreeQueue>::~lock_free_task_pusher_dynamic()
-{
-	if (!static_pusher_) return;
-
-	release();
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_dynamic<LockFreeQueue>::push(task_t task) -> void
-{
-	if (!static_pusher_) return;
-
-	static_pusher_->push(lock_free_task{dynamic_pusher_id, task});
-}
-
-template <typename LockFreeQueue>
-inline auto lock_free_task_pusher_dynamic<LockFreeQueue>::release() -> void
-{
-	static_pusher_->release_dynamic_pusher(dynamic_pusher_id);
-
-	static_pusher_ = {};
-}
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 // locking processor queue
@@ -579,6 +478,119 @@ inline auto locking_task_pusher::release() -> void
 
 	processor_ = {};
 }
+
+////////////////////////////////////////////////////////////////////////////////////
+// Serial //////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////////
+
+class serial_task_processor
+{
+public:
+
+	using index_t = size_t;
+
+	auto make_pusher() -> serial_task_pusher;
+	auto process_all() -> void;
+
+private:
+
+	auto get_empty_slot() -> rcv_handle;
+	auto push(rcv_handle slot, task_t task) -> void;
+	auto push(rcv_handle slot, task_t task, index_t index) -> void;
+	auto release(rcv_handle slot) -> int;
+
+	struct slot
+	{
+		auto clear() -> int;
+		auto is_empty() const -> bool;
+		auto process_all() -> int;
+		auto push(task_t task) -> int;
+		auto push(task_t task, index_t index) -> int;
+
+	private:
+
+		struct task_vector
+		{
+			auto clear() -> int;
+			auto process_all() -> int;
+			auto push(task_t task) -> int;
+			auto push(task_t task, index_t index) -> int;
+
+		private:
+
+			std::vector<task_t> tasks_;
+			std::vector<task_t> indexed_tasks_;
+			std::vector<index_t> indices_;
+		};
+
+		bool processing_{ false };
+		int total_tasks_{ 0 };
+		task_vector tasks_;
+		task_vector pushed_while_processing_;
+	};
+
+	clg::unsafe_rcv<slot> slots_;
+	std::vector<rcv_handle> busy_slots_;
+	int total_tasks_{ 0 };
+
+	friend class serial_task_pusher;
+};
+
+class serial_task_pusher
+{
+public:
+
+	serial_task_pusher() = default;
+	serial_task_pusher(serial_task_pusher&& rhs) noexcept;
+	serial_task_pusher(serial_task_processor* processor, rcv_handle slot);
+	auto operator=(serial_task_pusher&& rhs) noexcept -> serial_task_pusher&;
+	~serial_task_pusher();
+
+	auto push(task_t task) -> void;
+	auto push(serial_task_processor::index_t index, task_t task) -> void;
+
+	template <typename ConvertibleToindex_tType>
+	auto push(ConvertibleToindex_tType index, task_t task) -> void
+	{
+		push(static_cast<serial_task_processor::index_t>(index), task);
+	}
+
+	template <typename ConvertibleToindex_tType>
+	auto push(ConvertibleToindex_tType index) -> void
+	{
+		const auto index_conv { static_cast<serial_task_processor::index_t>(index) };
+
+		assert (premapped_tasks_.find(index_conv) != std::cend(premapped_tasks_));
+
+		push(index, premapped_tasks_[index_conv]);
+	}
+
+	auto release() -> void;
+
+	template <typename ConvertibleToindex_tType>
+	auto& operator[](ConvertibleToindex_tType index)
+	{
+		return premapped_tasks_[static_cast<serial_task_processor::index_t>(index)];
+	}
+
+	template <typename ConvertibleToIndex>
+	auto operator<<(ConvertibleToIndex index) -> void
+	{
+		push(index);
+	}
+
+	template <typename ConvertibleToIndex>
+	auto make_callable(ConvertibleToIndex index)
+	{
+		return [this, index]() { push(index); };
+	}
+
+private:
+
+	serial_task_processor* processor_{};
+	rcv_handle slot_;
+	std::unordered_map<serial_task_processor::index_t, task_t> premapped_tasks_;
+};
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 // serial processor slot task vector
@@ -840,12 +852,22 @@ namespace clg {
 
 struct moodycamel_rwq
 {
+	moodycamel_rwq()
+		: impl_{2}
+	{
+	}
+
 	moodycamel_rwq(size_t max_size)
 		: impl_{max_size}
 	{
 	}
 
-	inline auto pop(lock_free_task* out_task) -> bool
+	inline auto get_size_approx() const -> size_t
+	{
+		return impl_.size_approx();
+	}
+
+	inline auto pop(task_t* out_task) -> bool
 	{
 		return impl_.try_dequeue(*out_task);
 	}
@@ -864,12 +886,11 @@ struct moodycamel_rwq
 
 private:
 
-	moodycamel::ReaderWriterQueue<lock_free_task> impl_;
+	moodycamel::ReaderWriterQueue<task_t> impl_;
 };
 
 using lock_free_task_processor_mc = lock_free_task_processor<moodycamel_rwq>;
-using lock_free_task_pusher_static_mc = lock_free_task_pusher_static<moodycamel_rwq>;
-using lock_free_task_pusher_dynamic_mc = lock_free_task_pusher_dynamic<moodycamel_rwq>;
+using lock_free_task_pusher_mc = lock_free_task_pusher<moodycamel_rwq>;
 
 } // clg
 
