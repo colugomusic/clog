@@ -155,20 +155,23 @@ auto lock_free_growing_queue<LockFreeQueue>::process_all(LockFreeQueue* q) -> vo
 template <typename LockFreeQueue>
 auto lock_free_growing_queue<LockFreeQueue>::process_all() -> void
 {
-	if (queue_pair_[push_index_].get_size_approx() > size_ / 2)
+	size_t push_index{push_index_};
+
+	if (queue_pair_[push_index].get_size_approx() > size_ / 2)
 	{
 		size_ *= 2;
-		queue_pair_[1 - push_index_] = LockFreeQueue{size_};
-		push_index_ = 1 - push_index_;
+		queue_pair_[1 - push_index] = LockFreeQueue{size_};
+		push_index_ = 1 - push_index;
+		push_index = 1 - push_index;
 
 #		if defined(_DEBUG)
 			std::cout << "Queue size increased to " << size_ << "\n";
 #		endif
 
-		process_all(&queue_pair_[1 - push_index_]);
+		process_all(&queue_pair_[1 - push_index]);
 	}
 
-	process_all(&queue_pair_[push_index_]);
+	process_all(&queue_pair_[push_index]);
 }
 
 template <typename LockFreeQueue>
