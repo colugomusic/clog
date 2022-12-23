@@ -155,7 +155,7 @@ private:
 		template <typename FnT>
 		static auto copy(void* dest, const void* src) -> void
 		{
-			const auto& src_fn{ *reinterpret_cast<const FnT*>(src) };
+			const auto& src_fn{ *static_cast<const FnT*>(src) };
 
 			new (dest) FnT(src_fn);
 		}
@@ -169,7 +169,7 @@ private:
 		template <typename FnT>
 		static auto move(void* dest, void* src) -> void
 		{
-			auto& src_fn{ *reinterpret_cast<FnT*>(src) };
+			auto& src_fn{ *static_cast<FnT*>(src) };
 
 			new (dest) FnT(std::move(src_fn));
 		}
@@ -177,7 +177,7 @@ private:
 		template <typename FnT>
 		static auto invoke(const void* data, Args&&... args) -> R
 		{
-			const FnT& fn{ *reinterpret_cast<const FnT*>(data) };
+			const FnT& fn{ *static_cast<const FnT*>(data) };
 
 			return fn(std::forward<Args>(args)...);
 		}
