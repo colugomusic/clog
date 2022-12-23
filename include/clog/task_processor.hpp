@@ -1,11 +1,10 @@
 #pragma once
 
 #include <array>
-#include <functional>
-#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include "rcv.hpp"
+#include "small_function.hpp"
 
 #if defined(_DEBUG)
 #include <iostream>
@@ -13,7 +12,7 @@
 
 namespace clg {
 
-using task_t = std::function<void()>;
+using task_t = small_function<void(), 512>;
 template <typename LockFreeQueue> class lock_free_task_pusher;
 class locking_task_pusher;
 class serial_task_pusher;
@@ -329,7 +328,7 @@ private:
 // locking processor queue
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 inline locking_task_processor::queue::queue(queue&& rhs) noexcept
-	: queue_{std::move(rhs.queue_)}
+	: queue_(std::move(rhs.queue_))
 {
 }
 
