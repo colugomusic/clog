@@ -17,7 +17,7 @@ namespace detail {
 
 template< class T >
 struct remove_cvref {
-    typedef std::remove_cv_t<std::remove_reference_t<T>> type;
+	typedef std::remove_cv_t<std::remove_reference_t<T>> type;
 };
 
 template< class T >
@@ -32,130 +32,130 @@ class small_function<R(Args...), MaxSize>
 {
 public:
 
-    small_function() noexcept = default;
-    small_function(std::nullptr_t) noexcept {}
+	small_function() noexcept = default;
+	small_function(std::nullptr_t) noexcept {}
 
-    small_function(const small_function& rhs)
-        : operations_{rhs.operations_}
-    {
-        if (!(*this)) return;
+	small_function(const small_function& rhs)
+		: operations_{ rhs.operations_ }
+	{
+		if (!(*this)) return;
 
-        operations_.copier(&data_, &rhs.data_);
-    }
+		operations_.copier(&data_, &rhs.data_);
+	}
 
-    small_function(small_function&& rhs) noexcept
-        : operations_{std::move(rhs.operations_)}
-    {
-        if (!(*this)) return;
+	small_function(small_function&& rhs) noexcept
+		: operations_{ std::move(rhs.operations_) }
+	{
+		if (!(*this)) return;
 
 		operations_.mover(&data_, &rhs.data_);
-    }
+	}
 
-    template<typename FnT,
-        typename Dummy = typename std::enable_if_t<!std::is_same_v<small_function<R(Args...), MaxSize>, detail::remove_cvref_t<FnT>>>>
-    small_function(FnT&& fn)
-    {
-        from_fn(std::forward<FnT>(fn));
-    }
+	template<typename FnT,
+		typename Dummy = typename std::enable_if_t<!std::is_same_v<small_function<R(Args...), MaxSize>, detail::remove_cvref_t<FnT>>>>
+		small_function(FnT&& fn)
+	{
+		from_fn(std::forward<FnT>(fn));
+	}
 
-    ~small_function()
-    {
-        if (!!(*this))
-        {
-            operations_.destroyer(&data_);
-        }
-    }
+	~small_function()
+	{
+		if (!!(*this))
+		{
+			operations_.destroyer(&data_);
+		}
+	}
 
-    auto operator=(const small_function& rhs) -> small_function&
-    {
-        operations_ = rhs.operations_;
+	auto operator=(const small_function& rhs) -> small_function&
+	{
+		operations_ = rhs.operations_;
 
-        if (!(*this)) return *this;
+		if (!(*this)) return *this;
 
-        operations_.copier(&data_, &rhs.data_);
+		operations_.copier(&data_, &rhs.data_);
 
-        return *this;
-    }
+		return *this;
+	}
 
-    auto operator=(small_function&& rhs) noexcept -> small_function&
-    {
-        operations_ = rhs.operations_;
+	auto operator=(small_function&& rhs) noexcept -> small_function&
+	{
+		operations_ = rhs.operations_;
 
-        if (!(*this)) return *this;
+		if (!(*this)) return *this;
 
-        operations_.mover(&data_, &rhs.data_);
+		operations_.mover(&data_, &rhs.data_);
 
-        return *this;
-    }
+		return *this;
+	}
 
-    auto operator=(std::nullptr_t) -> small_function&
-    {
-        if (!(*this)) return *this;
+	auto operator=(std::nullptr_t) -> small_function&
+	{
+		if (!(*this)) return *this;
 
 		operations_.destroyer(&data_);
 		operations_ = {};
 
-        return *this;
-    }
+		return *this;
+	}
 
-    template <typename FnT,
-        typename Dummy = typename std::enable_if_t<!std::is_same_v<small_function<R(Args...), MaxSize>, detail::remove_cvref_t<FnT>>>>
-    auto operator=(FnT&& fn) -> small_function&
-    {
-        from_fn(std::forward<FnT>(fn));
-        return *this;
-    }
+	template <typename FnT,
+		typename Dummy = typename std::enable_if_t<!std::is_same_v<small_function<R(Args...), MaxSize>, detail::remove_cvref_t<FnT>>>>
+		auto operator=(FnT&& fn) -> small_function&
+	{
+		from_fn(std::forward<FnT>(fn));
+		return *this;
+	}
 
-    template <typename FnT>
-    auto operator=(std::reference_wrapper<FnT> fn) -> small_function&
-    {
-        from_fn(fn);
-        return *this;
-    }
+	template <typename FnT>
+	auto operator=(std::reference_wrapper<FnT> fn) -> small_function&
+	{
+		from_fn(fn);
+		return *this;
+	}
 
-    explicit operator bool() const noexcept
-    {
-        return !!operations_;
-    }
+	explicit operator bool() const noexcept
+	{
+		return !!operations_;
+	}
 
-    auto operator()(Args... args) const -> R
-    {
-        if (!operations_)
-        {
-            throw std::bad_function_call();
-        }
+	auto operator()(Args... args) const -> R
+	{
+		if (!operations_)
+		{
+			throw std::bad_function_call();
+		}
 
-        return operations_.invoker(&data_, std::forward<Args>(args)...);
-    }
+		return operations_.invoker(&data_, std::forward<Args>(args)...);
+	}
 
 private:
 
-    struct Operations
-    {
+	struct Operations
+	{
 		using Copier = void (*)(void*, const void*);
 		using Destroyer = void (*)(void*);
 		using Invoker = R (*)(const void*, Args &&...);
 		using Mover = void (*)(void*, void*);
 
-        Operations() = default;
+		Operations() = default;
 
 		template <typename FnT>
-        static auto make() -> Operations
-        {
-            Operations out;
+		static auto make() -> Operations
+		{
+			Operations out;
 
 			out.copier = &copy<FnT>;
 			out.destroyer = &destroy<FnT>;
 			out.mover = &move<FnT>;
 			out.invoker = &invoke<FnT>;
 
-            return out;
-        }
+			return out;
+		}
 
 		template <typename FnT>
 		static auto copy(void* dest, const void* src) -> void
 		{
-			const auto& src_fn{*reinterpret_cast<const FnT*>(src)};
+			const auto& src_fn{ *reinterpret_cast<const FnT*>(src) };
 
 			new (dest) FnT(src_fn);
 		}
@@ -169,7 +169,7 @@ private:
 		template <typename FnT>
 		static auto move(void* dest, void* src) -> void
 		{
-			auto& src_fn{*reinterpret_cast<FnT*>(src)};
+			auto& src_fn{ *reinterpret_cast<FnT*>(src) };
 
 			new (dest) FnT(std::move(src_fn));
 		}
@@ -177,7 +177,7 @@ private:
 		template <typename FnT>
 		static auto invoke(const void* data, Args&&... args) -> R
 		{
-			const FnT& fn{*reinterpret_cast<const FnT*>(data)};
+			const FnT& fn{ *reinterpret_cast<const FnT*>(data) };
 
 			return fn(std::forward<Args>(args)...);
 		}
@@ -191,25 +191,25 @@ private:
 		Destroyer destroyer{};
 		Invoker invoker{};
 		Mover mover{};
-    };
+	};
 
-    using Storage = typename std::aligned_storage<MaxSize - sizeof(Operations), 8>::type;
+	using Storage = typename std::aligned_storage<MaxSize - sizeof(Operations), 8>::type;
 
-    template<typename FnT>
-    auto from_fn(FnT fn) -> void
-    {
-        using fn_t = typename std::decay<FnT>::type;
+	template<typename FnT>
+	auto from_fn(FnT fn) -> void
+	{
+		using fn_t = typename std::decay<FnT>::type;
 
-        static_assert(alignof(fn_t) <= alignof(Storage), "invalid alignment");
-        static_assert(sizeof(fn_t) <= sizeof(Storage), "storage too small");
+		static_assert(alignof(fn_t) <= alignof(Storage), "invalid alignment");
+		static_assert(sizeof(fn_t) <= sizeof(Storage), "storage too small");
 
-        new (&data_) fn_t(std::forward<FnT>(fn));
+		new (&data_) fn_t(std::forward<FnT>(fn));
 
-        operations_ = Operations::make<fn_t>();
-    }
+		operations_ = Operations::make<fn_t>();
+	}
 
-    Storage data_{};
-    Operations operations_{};
+	Storage data_{};
+	Operations operations_{};
 };
 
 } // clg
