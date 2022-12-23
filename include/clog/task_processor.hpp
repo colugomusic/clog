@@ -67,8 +67,10 @@ struct lock_free_growing_queue
 
 	auto process_all() -> void;
 	auto process_all(LockFreeQueue* q) -> void;
-	auto push(task_t task) -> void;
 	auto get_size() const { return size_; }
+
+	template <typename Task>
+	auto push(Task&& task) -> void;
 
 private:
 
@@ -119,9 +121,10 @@ public:
 	lock_free_task_pusher(lock_free_task_processor<LockFreeQueue>* processor, detail::lock_free_pusher_body<LockFreeQueue>* body);
 	auto operator=(lock_free_task_pusher<LockFreeQueue>&& rhs) noexcept -> lock_free_task_pusher<LockFreeQueue>&;
 	~lock_free_task_pusher();
-
-	auto push(task_t task) -> void;
 	auto release() -> void;
+
+	template <typename Task>
+	auto push(Task&& task) -> void;
 
 private:
 
@@ -175,9 +178,10 @@ auto lock_free_growing_queue<LockFreeQueue>::process_all() -> void
 }
 
 template <typename LockFreeQueue>
-auto lock_free_growing_queue<LockFreeQueue>::push(task_t task) -> void
+template <typename Task>
+auto lock_free_growing_queue<LockFreeQueue>::push(Task&& task) -> void
 {
-	queue_pair_[push_index_].push(std::move(task));
+	queue_pair_[push_index_].push(std::forward<Task>(task));
 }
 
 } // detail
@@ -255,11 +259,12 @@ lock_free_task_pusher<LockFreeQueue>::~lock_free_task_pusher()
 }
 
 template <typename LockFreeQueue>
-auto lock_free_task_pusher<LockFreeQueue>::push(task_t task) -> void
+template <typename Task>
+auto lock_free_task_pusher<LockFreeQueue>::push(Task&& task) -> void
 {
 	if (!processor_) return;
 
-	body_->q.push(task);
+	body_->q.push(std::forward<Task>(task));
 }
 
 template <typename LockFreeQueue>
@@ -283,8 +288,10 @@ public:
 
 private:
 
-	auto push(clg::rcv_handle handle, task_t task) -> void;
 	auto release(clg::rcv_handle handle) -> void;
+
+	template <typename Task>
+	auto push(clg::rcv_handle handle, Task&& task) -> void;
 
 	struct queue
 	{
@@ -292,7 +299,9 @@ private:
 		queue(queue&& rhs) noexcept;
 
 		auto process_all() -> void;
-		auto push(task_t task) -> void;
+
+		template <typename Task>
+		auto push(Task&& task) -> void;
 
 	private:
 
@@ -316,8 +325,10 @@ public:
 	auto operator=(locking_task_pusher&& rhs) noexcept -> locking_task_pusher&;
 	~locking_task_pusher();
 
-	auto push(task_t task) -> void;
 	auto release() -> void;
+
+	template <typename Task>
+	auto push(Task&& task) -> void;
 
 private:
 
@@ -349,11 +360,12 @@ inline auto locking_task_processor::queue::process_all() -> void
 	}
 }
 
-inline auto locking_task_processor::queue::push(task_t task) -> void
+template <typename Task>
+inline auto locking_task_processor::queue::push(Task&& task) -> void
 {
 	std::unique_lock lock{mutex_};
 
-	queue_.push_back(std::move(task));
+	queue_.push_back(std::forward<Task>(task));
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -370,11 +382,12 @@ inline auto locking_task_processor::make_pusher() -> locking_task_pusher
 	return locking_task_pusher(this, handle);
 }
 
-inline auto locking_task_processor::push(clg::rcv_handle handle, task_t task) -> void
+template <typename Task>
+inline auto locking_task_processor::push(clg::rcv_handle handle, Task&& task) -> void
 {
 	std::unique_lock lock{mutex_};
 
-	queues_.get(handle)->push(task);
+	queues_.get(handle)->push(std::forward<Task>(task));
 }
 
 inline auto locking_task_processor::release(clg::rcv_handle handle) -> void
@@ -426,11 +439,12 @@ inline locking_task_pusher::~locking_task_pusher()
 	release();
 }
 
-inline auto locking_task_pusher::push(task_t task) -> void
+template <typename Task>
+inline auto locking_task_pusher::push(Task&& task) -> void
 {
 	if (!processor_) return;
 
-	processor_->push(handle_, task);
+	processor_->push(handle_, std::forward<Task>(task));
 }
 
 inline auto locking_task_pusher::release() -> void
@@ -456,17 +470,25 @@ public:
 private:
 
 	auto get_empty_slot() -> rcv_handle;
-	auto push(rcv_handle slot, task_t task) -> void;
-	auto push(rcv_handle slot, task_t task, index_t index) -> void;
 	auto release(rcv_handle slot) -> int;
+
+	template <typename Task>
+	auto push(rcv_handle slot, Task&& task) -> void;
+
+	template <typename Task>
+	auto push(rcv_handle slot, Task&& task, index_t index) -> void;
 
 	struct slot
 	{
 		auto clear() -> int;
 		auto is_empty() const -> bool;
 		auto process_all() -> int;
-		auto push(task_t task) -> int;
-		auto push(task_t task, index_t index) -> int;
+
+		template <typename Task>
+		auto push(Task&& task) -> int;
+
+		template <typename Task>
+		auto push(Task&& task, index_t index) -> int;
 
 	private:
 
@@ -474,8 +496,12 @@ private:
 		{
 			auto clear() -> int;
 			auto process_all() -> int;
-			auto push(task_t task) -> int;
-			auto push(task_t task, index_t index) -> int;
+
+			template <typename Task>
+			auto push(Task&& task) -> int;
+
+			template <typename Task>
+			auto push(Task&& task, index_t index) -> int;
 
 		private:
 
@@ -507,29 +533,32 @@ public:
 	auto operator=(serial_task_pusher&& rhs) noexcept -> serial_task_pusher&;
 	~serial_task_pusher();
 
-	auto push(task_t task) -> void;
-	auto push(serial_task_processor::index_t index, task_t task) -> void;
+	template <typename Task>
+	auto push_task(Task&& task) -> void;
 
-	template <typename ConvertibleToindex_tType>
-	auto push(ConvertibleToindex_tType index, task_t task) -> void
+	template <typename Task>
+	auto push_indexed_task(serial_task_processor::index_t index, Task&& task) -> void;
+
+	template <typename ConvertibleToIndex, typename Task>
+	auto push_indexed_task(ConvertibleToIndex index, Task&& task) -> void
 	{
-		push(static_cast<serial_task_processor::index_t>(index), task);
+		push_indexed_task(static_cast<serial_task_processor::index_t>(index), task);
 	}
 
-	template <typename ConvertibleToindex_tType>
-	auto push(ConvertibleToindex_tType index) -> void
+	template <typename ConvertibleToIndex>
+	auto push_indexed_task(ConvertibleToIndex index) -> void
 	{
 		const auto index_conv { static_cast<serial_task_processor::index_t>(index) };
 
 		assert (premapped_tasks_.find(index_conv) != std::cend(premapped_tasks_));
 
-		push(index, premapped_tasks_[index_conv]);
+		push_indexed_task(index, premapped_tasks_[index_conv]);
 	}
 
 	auto release() -> void;
 
-	template <typename ConvertibleToindex_tType>
-	auto& operator[](ConvertibleToindex_tType index)
+	template <typename ConvertibleToIndex>
+	auto& operator[](ConvertibleToIndex index)
 	{
 		return premapped_tasks_[static_cast<serial_task_processor::index_t>(index)];
 	}
@@ -537,13 +566,13 @@ public:
 	template <typename ConvertibleToIndex>
 	auto operator<<(ConvertibleToIndex index) -> void
 	{
-		push(index);
+		push_indexed_task(index);
 	}
 
 	template <typename ConvertibleToIndex>
 	auto make_callable(ConvertibleToIndex index)
 	{
-		return [this, index]() { push(index); };
+		return [this, index]() { push_indexed_task(index); };
 	}
 
 private:
@@ -582,14 +611,16 @@ inline auto serial_task_processor::slot::task_vector::process_all() -> int
 	return clear();
 }
 
-inline auto serial_task_processor::slot::task_vector::push(task_t task) -> int
+template <typename Task>
+inline auto serial_task_processor::slot::task_vector::push(Task&& task) -> int
 {
-	tasks_.push_back(task);
+	tasks_.push_back(std::forward<Task>(task));
 
 	return 1;
 }
 
-inline auto serial_task_processor::slot::task_vector::push(task_t task, index_t index) -> int
+template <typename Task>
+inline auto serial_task_processor::slot::task_vector::push(Task&& task, index_t index) -> int
 {
 	if (indexed_tasks_.size() <= index)
 	{
@@ -598,7 +629,7 @@ inline auto serial_task_processor::slot::task_vector::push(task_t task, index_t 
 
 	if (indexed_tasks_[index]) return 0;
 
-	indexed_tasks_[index] = task;
+	indexed_tasks_[index] = std::forward<Task>(task);
 	indices_.push_back(index);
 
 	return 1;
@@ -636,17 +667,18 @@ inline auto serial_task_processor::slot::process_all() -> int
 	return total_processed;
 }
 
-inline auto serial_task_processor::slot::push(task_t task) -> int
+template <typename Task>
+inline auto serial_task_processor::slot::push(Task&& task) -> int
 {
 	int pushed_tasks{ 0 };
 
 	if (processing_)
 	{
-		pushed_tasks = pushed_while_processing_.push(task);
+		pushed_tasks = pushed_while_processing_.push(std::forward<Task>(task));
 	}
 	else
 	{
-		pushed_tasks = tasks_.push(task);
+		pushed_tasks = tasks_.push(std::forward<Task>(task));
 	}
 
 	total_tasks_ += pushed_tasks;
@@ -654,17 +686,18 @@ inline auto serial_task_processor::slot::push(task_t task) -> int
 	return pushed_tasks;
 }
 
-inline auto serial_task_processor::slot::push(task_t task, index_t index) -> int
+template <typename Task>
+inline auto serial_task_processor::slot::push(Task&& task, index_t index) -> int
 {
 	int pushed_tasks{ 0 };
 
 	if (processing_)
 	{
-		pushed_tasks = pushed_while_processing_.push(task, index);
+		pushed_tasks = pushed_while_processing_.push(std::forward<Task>(task), index);
 	}
 	else
 	{
-		pushed_tasks = tasks_.push(task, index);
+		pushed_tasks = tasks_.push(std::forward<Task>(task), index);
 	}
 
 	total_tasks_ += pushed_tasks;
@@ -680,12 +713,13 @@ inline auto serial_task_processor::make_pusher() -> serial_task_pusher
 	return serial_task_pusher(this, slots_.acquire());
 }
 
-inline auto serial_task_processor::push(rcv_handle handle, task_t task) -> void
+template <typename Task>
+inline auto serial_task_processor::push(rcv_handle handle, Task&& task) -> void
 {
 	const auto slot{slots_.get(handle)};
 	const auto was_empty{slot->is_empty()};
 
-	total_tasks_ += slot->push(task);
+	total_tasks_ += slot->push(std::forward<Task>(task));
 
 	if (was_empty && !slot->is_empty())
 	{
@@ -693,12 +727,13 @@ inline auto serial_task_processor::push(rcv_handle handle, task_t task) -> void
 	}
 }
 
-inline auto serial_task_processor::push(rcv_handle handle, task_t task, index_t index) -> void
+template <typename Task>
+inline auto serial_task_processor::push(rcv_handle handle, Task&& task, index_t index) -> void
 {
 	const auto slot{slots_.get(handle)};
 	const auto was_empty{slot->is_empty()};
 
-	total_tasks_ += slot->push(task, index);
+	total_tasks_ += slot->push(std::forward<Task>(task), index);
 
 	if (was_empty && !slot->is_empty())
 	{
@@ -782,18 +817,20 @@ inline serial_task_pusher::~serial_task_pusher()
 	release();
 }
 
-inline auto serial_task_pusher::push(task_t task) -> void
+template <typename Task>
+inline auto serial_task_pusher::push_task(Task&& task) -> void
 {
 	if (!processor_) return;
 
-	processor_->push(slot_, task);
+	processor_->push(slot_, std::forward<Task>(task));
 }
 
-inline auto serial_task_pusher::push(serial_task_processor::index_t index, task_t task) -> void
+template <typename Task>
+inline auto serial_task_pusher::push_indexed_task(serial_task_processor::index_t index, Task&& task) -> void
 {
 	if (!processor_) return;
 
-	processor_->push(slot_, task, index);
+	processor_->push(slot_, std::forward<Task>(task), index);
 }
 
 inline auto serial_task_pusher::release() -> void
@@ -833,15 +870,15 @@ struct moodycamel_rwq
 		return impl_.try_dequeue(*out_task);
 	}
 
-	template <typename TaskT>
-	inline auto push(TaskT&& task) -> void
+	template <typename Task>
+	inline auto push(Task&& task) -> void
 	{
 #	if _DEBUG
-		const auto success{ impl_.try_emplace(std::move(task)) };
+		const auto success{ impl_.try_emplace(std::forward<Task>(task)) };
 
 		assert(success);
 #	else
-		impl_.emplace(std::move(task));
+		impl_.emplace(std::forward<Task>(task));
 #	endif
 	}
 
