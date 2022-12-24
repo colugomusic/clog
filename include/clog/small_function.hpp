@@ -221,7 +221,7 @@ private:
 		using fn_t = typename std::decay<FnT>::type;
 
 		static_assert(std::is_copy_constructible<fn_t>::value,
-			"std::small_function cannot be constructed from a non-copyable type"
+			"clg::small_function cannot be constructed from a non-copyable type"
 			);
 
 		static_assert(sizeof(fn_t) <= sizeof(storage_t),
@@ -229,7 +229,7 @@ private:
 			);
 
 		static_assert(alignof(fn_t) % alignof(storage_t) == 0,
-			"std::small_function cannot be constructed from an object of this alignment"
+			"clg::small_function cannot be constructed from an object of this alignment"
 			);
 
 		static const vtable_t vtable{detail::type_identity<fn_t>{}};
