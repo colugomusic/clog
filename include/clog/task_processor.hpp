@@ -348,7 +348,7 @@ inline auto locking_task_processor::queue::process_all() -> void
 {
 	std::unique_lock lock{mutex_};
 
-	const auto queue{std::move(queue_)};
+	const std::vector<task_t> queue(std::move(queue_));
 
 	queue_.clear();
 
