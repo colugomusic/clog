@@ -142,12 +142,14 @@ private:
 		template <typename FnT>
 		static auto make() -> Operations
 		{
+			using fn_t = typename std::decay<FnT>::type;
+
 			Operations out;
 
-			out.copier = &copy<FnT>;
-			out.destroyer = &destroy<FnT>;
-			out.mover = &move<FnT>;
-			out.invoker = &invoke<FnT>;
+			out.copier = &copy<fn_t>;
+			out.destroyer = &destroy<fn_t>;
+			out.mover = &move<fn_t>;
+			out.invoker = &invoke<fn_t>;
 
 			return out;
 		}
@@ -205,7 +207,7 @@ private:
 
 		new (&data_) fn_t(std::forward<FnT>(fn));
 
-		operations_ = Operations::make<fn_t>();
+		operations_ = Operations::make<FnT>();
 	}
 
 	Storage data_{};
