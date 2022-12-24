@@ -13,11 +13,18 @@
 
 namespace clg {
 
-using task_t = small_function<void(), 512>;
+inline constexpr size_t DEFAULT_TASK_SIZE{512};
+
+#if defined(CLOG_TASK_SIZE)
+inline constexpr size_t TASK_SIZE{CLOG_TASK_SIZE};
+#else
+inline constexpr size_t TASK_SIZE{DEFAULT_TASK_SIZE};
+#endif
+
+using task_t = small_function<void(), TASK_SIZE>;
 template <typename LockFreeQueue> class lock_free_task_pusher;
 class locking_task_pusher;
 class serial_task_pusher;
-
 
 ////////////////////////////////////////////////////////////////////////////////////
 // Lock-free ///////////////////////////////////////////////////////////////////////
