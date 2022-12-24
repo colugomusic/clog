@@ -340,7 +340,7 @@ private:
 // locking processor queue
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
 inline locking_task_processor::queue::queue(queue&& rhs) noexcept
-	: queue_(std::move(rhs.queue_))
+	: queue_{std::move(rhs.queue_)}
 {
 }
 
@@ -348,13 +348,13 @@ inline auto locking_task_processor::queue::process_all() -> void
 {
 	std::unique_lock lock{mutex_};
 
-	const std::vector<task_t> queue(std::move(queue_));
+	const auto queue{std::move(queue_)};
 
 	queue_.clear();
 
 	lock.unlock();
 
-	for (const auto task : queue)
+	for (const auto& task : queue)
 	{
 		task();
 	}
