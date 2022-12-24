@@ -206,7 +206,7 @@ public:
 
 	explicit operator bool() const noexcept
 	{
-		return vtable_;
+		return vtable_ != std::addressof(detail::empty_vtable<R, Args...>);
 	}
 
 	auto operator()(Args... args) const -> R
