@@ -4,9 +4,6 @@
 // std::function replacement which does not ever allocate
 // heap memory
 // 
-// This is based on github:rigtorp/Function by Erik Rigtorp
-// except I fixed all the problems with it!
-//
 
 #include <functional>
 #include <memory>
