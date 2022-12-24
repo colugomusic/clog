@@ -53,7 +53,7 @@ public:
 
 	template<typename FnT,
 		typename Dummy = typename std::enable_if_t<!std::is_same_v<small_function<R(Args...), MaxSize>, detail::remove_cvref_t<FnT>>>>
-		small_function(FnT&& fn)
+		explicit small_function(FnT&& fn)
 	{
 		from_fn(std::forward<FnT>(fn));
 	}
