@@ -205,7 +205,7 @@ private:
 
 		new (&data_) fn_t(std::forward<FnT>(fn));
 
-		operations_ = Operations::make<typename fn_t>();
+		operations_ = Operations::template make<fn_t>();
 	}
 
 	Storage data_{};
