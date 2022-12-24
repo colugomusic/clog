@@ -196,7 +196,7 @@ private:
 	using Storage = typename std::aligned_storage<MaxSize - sizeof(Operations), 8>::type;
 
 	template<typename FnT>
-	auto from_fn(FnT fn) -> void
+	auto from_fn(FnT&& fn) -> void
 	{
 		using fn_t = typename std::decay<FnT>::type;
 
