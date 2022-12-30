@@ -12,7 +12,7 @@ Header-only libraries.
 4. [property.hpp](#propertyhpp) - set/get property library
 5. [expire.hpp](#expirehpp) - dying object notifications
 6. [small_function.hpp](include/clog/small_function.hpp) - like `std::function` except it can never allocate heap memory. not documented
-7. [task_processor.hpp](include/clog/task_processor.hpp) - push tasks to be performed later, from the main thread or a worker thread or a realtime processing thread which can't lock. not documented
+7. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
 8. [cache.hpp](#cachehpp) - a single cached value
 9. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
 
