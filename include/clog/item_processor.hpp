@@ -2,6 +2,7 @@
 
 #include <array>
 #include <atomic>
+#include <memory>
 #include <mutex>
 #include <unordered_map>
 #include "rcv.hpp"
