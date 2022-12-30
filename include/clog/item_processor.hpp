@@ -211,7 +211,7 @@ private:
 
 	std::vector<std::unique_ptr<pusher_body_t>> pushers_;
 
-	friend class pusher_t;
+	friend class lock_free_pusher<QueueImpl, AllocationPolicy>;
 };
 
 template <typename QueueImpl, typename AllocationPolicy>
