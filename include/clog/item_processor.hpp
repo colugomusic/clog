@@ -401,8 +401,8 @@ private:
 
 	auto release(clg::rcv_handle handle) -> void;
 
-	template <typename T>
-	auto push(clg::rcv_handle handle, T&& item) -> void;
+	template <typename U>
+	auto push(clg::rcv_handle handle, U&& item) -> void;
 
 	struct queue
 	{
