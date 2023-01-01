@@ -141,7 +141,7 @@ struct lock_free_queue_may_allocate_on_push : public lock_free_queue_basic<Queue
 	template <typename T>
 	auto push(T&& value) -> void
 	{
-		push_may_allocate(std::forward<T>(value));
+		lock_free_queue_basic<QueueImpl>::template push_may_allocate(std::forward<T>(value));
 	}
 };
 
@@ -156,7 +156,7 @@ struct lock_free_queue_never_allocate : public lock_free_queue_basic<QueueImpl>
 	template <typename T>
 	auto push(T&& value) -> void
 	{
-		push_may_not_allocate(std::forward<T>(value));
+		lock_free_queue_basic<QueueImpl>::template push_may_not_allocate(std::forward<T>(value));
 	}
 };
 
