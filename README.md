@@ -48,11 +48,8 @@ public:
 
 - T must be copy or move constructible.
 - You can't choose where in the vector new elements are inserted.
-- Inserting new elements is fast when there's already enough capacity.
-- Removing existing elements from anywhere in the vector is very fast.
-- Iterating over the elements is very fast.
 - Elements may become fragmented, but only within a single contiguous block of memory.
-- The `reserve()` method does *not* work by inserting default-initialized elements in the empty cells. The memory will be reserved but no actual objects will be constructed there. A cell is empty until a call to `acquire()` constructs an element there.
+- A cell is empty until a call to `acquire()` constructs an element there.
 
 When iterating over the elements their order is not guaranteed, e.g.
 
