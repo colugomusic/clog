@@ -10,7 +10,7 @@
 
 namespace clg {
 
-template <typename Signature, size_t MaxSize = 1024>
+template <typename Signature, size_t MaxSize = 32>
 class small_function;
 
 namespace detail {
