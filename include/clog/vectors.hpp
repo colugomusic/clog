@@ -175,11 +175,8 @@ struct vector : public std::vector<T>
 	using base_t = std::vector<T>;
 
 	vector() = default;
-
-	vector(base_t && vec)
-		: base_t(std::forward<base_t>(vec))
-	{
-	}
+	vector(const base_t& vec) : base_t{vec} {}
+	vector(base_t && vec) : base_t{std::move(vec)} {}
 
 	auto contains(const T& value) const -> bool
 	{
