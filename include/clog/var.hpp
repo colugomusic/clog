@@ -2,6 +2,27 @@
 #include <optional>
 #include <variant>
 
+//
+// WORKAROUNDS:
+//
+// Conversions from clg::object to any of the ref types are
+// currently made explicit because otherwise MSVC gets incredibly
+// confused and will start trying to instantiate clg::object in
+// places where it shouldn't (even if no implicit conversion is
+// happening!)
+// 
+// This example demonstrates the issue:
+//
+// struct Test {
+//		A a;
+//		auto get() -> clg::var<A, B, C>::const_ref {
+//			return &a; // MSVC bizarrely tries to instantiate clg::object<A, B, C> here,
+//			              unless the const_ref constructor from object is marked explicit.
+//		}
+// };
+//
+// 
+//
 namespace clg {
 
 template <typename... Types> struct const_ref;
@@ -124,17 +145,16 @@ struct var_base
 		return std::visit([args...](auto&& o) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
 	}
 
-	template <typename T> auto& get()
-	{
-		return std::get<typename Traits::compose_type<T>::type>(Traits::decompose_variant(v_));
+	template <typename T> auto& get() {
+		return std::get<typename Traits::template compose_type<T>::type>(Traits::decompose_variant(v_));
 	}
 
 	template <typename T> auto& get() const {
-		return std::get<typename Traits::compose_type<T>::type>(Traits::decompose_variant(v_));
+		return std::get<typename Traits::template compose_type<T>::type>(Traits::decompose_variant(v_));
 	}
 
 	template <typename T> auto holds() const {
-		return std::holds_alternative<typename Traits::compose_type<T>::type>(Traits::decompose_variant(v_));
+		return std::holds_alternative<typename Traits::template compose_type<T>::type>(Traits::decompose_variant(v_));
 	}
 
 	variant_type v_;
@@ -167,8 +187,9 @@ struct ref : public var_base<detail::traits<ref<Types...>>>
 	using optional_ref_t = optional_ref<Types...>;
 
 	template <typename T> ref(T* value) : base_t{value} {}
-	explicit ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	explicit ref(optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	ref(const ref& rhs) = default;
+	ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 
 	template <typename T>
 	auto operator=(T* value) -> ref<Types...>& {
@@ -199,12 +220,13 @@ struct const_ref : public var_base<detail::traits<const_ref<Types...>>>
 	using ref_t = ref<Types...>;
 
 	template <typename T> const_ref(const T* value) : base_t{value} {}
-	explicit const_ref(const object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	explicit const_ref(const ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	explicit const_ref(optional_const_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	explicit const_ref(optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	explicit const_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
-	explicit const_ref(optional_const_ref_t&& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	const_ref(const const_ref& rhs) = default;
+	const_ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	const_ref(const ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	const_ref(const optional_const_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	const_ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	const_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
+	const_ref(optional_const_ref_t&& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 
 	template <typename T> auto operator=(const T* value) -> const_ref<Types...>& {
 		base_t::v_ = value;
@@ -250,9 +272,9 @@ struct optional_ref : public var_base<detail::traits<optional_ref<Types...>>>
 
 	optional_ref() : base_t{std::nullopt} {}
 	template <typename T> optional_ref(T* value) : base_t{value} {}
-	explicit optional_ref(const ref_t& rhs) : base_t{rhs.v_} {}
-	explicit optional_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
-	explicit optional_ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	optional_ref(const object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	optional_ref(ref_t& rhs) : base_t{rhs.v_} {}
+	optional_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
 
 	template <typename T>
 	auto operator=(T* value) -> ref<Types...>& {
@@ -291,11 +313,11 @@ struct optional_const_ref : public var_base<detail::traits<optional_const_ref<Ty
 
 	optional_const_ref() : base_t{std::nullopt} {}
 	template <typename T> optional_const_ref(const T* value) : base_t{value} {}
-	explicit optional_const_ref(const ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	explicit optional_const_ref(const object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	explicit optional_const_ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	explicit optional_const_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
-	explicit optional_const_ref(const_ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
+	optional_const_ref(const object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	optional_const_ref(const ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	optional_const_ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	optional_const_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
+	optional_const_ref(const_ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
 
 	template <typename T>
 	auto operator=(const T* value) -> ref<Types...>& {
