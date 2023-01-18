@@ -2,27 +2,6 @@
 #include <optional>
 #include <variant>
 
-//
-// WORKAROUNDS:
-//
-// Conversions from clg::object to any of the ref types are
-// currently made explicit because otherwise MSVC gets incredibly
-// confused and will start trying to instantiate clg::object in
-// places where it shouldn't (even if no implicit conversion is
-// happening!)
-// 
-// This example demonstrates the issue:
-//
-// struct Test {
-//		A a;
-//		auto get() -> clg::var<A, B, C>::const_ref {
-//			return &a; // MSVC bizarrely tries to instantiate clg::object<A, B, C> here,
-//			              unless the const_ref constructor from object is marked explicit.
-//		}
-// };
-//
-// 
-//
 namespace clg {
 
 template <typename... Types> struct const_ref;
