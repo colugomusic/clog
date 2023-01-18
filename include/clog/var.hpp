@@ -272,7 +272,7 @@ struct optional_ref : public var_base<detail::traits<optional_ref<Types...>>>
 
 	optional_ref() : base_t{std::nullopt} {}
 	template <typename T> optional_ref(T* value) : base_t{value} {}
-	optional_ref(const object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+	optional_ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	optional_ref(ref_t& rhs) : base_t{rhs.v_} {}
 	optional_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
 
