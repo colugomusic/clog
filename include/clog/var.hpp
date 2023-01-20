@@ -12,66 +12,74 @@ template <typename... Types> struct ref;
 
 namespace detail {
 
+//template <typename Tag, typename T, typename... Args>
+//auto call(T& o, Args&&... args) { return Tag::call(o, std::move(args)...); }
 template <typename Tag, typename T, typename... Args>
-auto call(T& o, Args&&... args) { return Tag::call(o, std::move(args)...); }
-template <typename Tag, typename T, typename... Args>
-auto call(T* o, Args&&... args) { return Tag::call(*o, std::move(args)...); }
+auto call(T* o, Args&&... args) { return Tag::call(o, std::move(args)...); }
 
 template <typename T> struct traits {};
 
+struct object_traits {
+	template <typename T> struct compose_type { using type = T; };
+	template <typename T> static auto compose_value(T* value) -> T& { return *value; }
+	template <typename T> static auto decompose_value(T& value) -> T* { return &value; }
+};
+
+struct const_pointer_traits {
+	template <typename T> struct compose_type { using type = std::add_pointer_t<std::add_const_t<T>>; };
+	template <typename T> static auto compose_value(T* value) -> T* { return value; }
+	template <typename T> static auto decompose_value(T* value) -> T* { return value; }
+};
+
+struct non_optional_traits {
+	template <typename T> static auto& decompose_variant(T& variant) { return variant; }
+	template <typename T> static auto assert_variant(T& variant) { return true; }
+};
+
+struct optional_traits {
+	template <typename T> static auto& decompose_variant(T& variant) { return variant.value(); }
+	template <typename T> static auto assert_variant(T& variant) { return variant.has_value(); }
+};
+
+struct pointer_traits {
+	template <typename T> struct compose_type { using type = std::add_pointer_t<T>; };
+	template <typename T> static auto compose_value(T* value) -> T* { return value; }
+	template <typename T> static auto decompose_value(T* value) -> T* { return value; }
+};
+
 template <typename... Types>
-struct traits<object<Types...>> {
+struct traits<object<Types...>> : public object_traits, public non_optional_traits {
 	using type = object<Types...>;
 	using variant_type = std::variant<Types...>;
 	template <typename T> struct compose_type { using type = T; };
-	template <typename T> static auto& compose_value(T&& value) { return value; }
-	template <typename T> static auto& decompose_value(T&& value) { return value; }
-	template <typename T> static auto& decompose_variant(T&& variant) { return variant; }
-	template <typename T> static auto assert_variant(T&& variant) { return true; }
 };
 
 template <typename... Types>
-struct traits<ref<Types...>> {
+struct traits<ref<Types...>> : public pointer_traits, public non_optional_traits {
 	using type = ref<Types...>;
 	using variant_type = std::variant<std::add_pointer_t<Types>...>;
 	template <typename T> struct compose_type { using type = std::add_pointer_t<T>; };
-	template <typename T> static auto compose_value(T&& value) { return &value; }
-	template <typename T> static auto& decompose_value(T* value) { return *value; }
-	template <typename T> static auto& decompose_variant(T&& variant) { return variant; }
-	template <typename T> static auto assert_variant(T&& variant) { return true; }
 };
 
 template <typename... Types>
-struct traits<const_ref<Types...>> {
+struct traits<const_ref<Types...>> : public const_pointer_traits, public non_optional_traits {
 	using type = const_ref<Types...>;
 	using variant_type = std::variant<std::add_pointer_t<std::add_const_t<Types>>...>;
 	template <typename T> struct compose_type { using type = std::add_pointer_t<std::add_const_t<T>>; };
-	template <typename T> static auto compose_value(T&& value) { return &value; }
-	template <typename T> static auto& decompose_value(T* value) { return *value; }
-	template <typename T> static auto& decompose_variant(T&& variant) { return variant; }
-	template <typename T> static auto assert_variant(T&& variant) { return true; }
 };
 
 template <typename... Types>
-struct traits<optional_ref<Types...>> {
+struct traits<optional_ref<Types...>> : public pointer_traits, public optional_traits {
 	using type = optional_ref<Types...>;
 	using variant_type = std::optional<std::variant<std::add_pointer_t<Types>...>>;
 	template <typename T> struct compose_type { using type = std::add_pointer_t<T>; };
-	template <typename T> static auto compose_value(T&& value) { return &value; }
-	template <typename T> static auto& decompose_value(T* value) { return *value; }
-	template <typename T> static auto& decompose_variant(T&& variant) { return variant.value(); }
-	template <typename T> static auto assert_variant(T&& variant) { return variant.has_value(); }
 };
 
 template <typename... Types>
-struct traits<optional_const_ref<Types...>> {
+struct traits<optional_const_ref<Types...>> : public const_pointer_traits, public optional_traits {
 	using type = optional_const_ref<Types...>;
 	using variant_type = std::optional<std::variant<std::add_pointer_t<std::add_const_t<Types>>...>>;
 	template <typename T> struct compose_type { using type = std::add_pointer_t<std::add_const_t<T>>; };
-	template <typename T> static auto compose_value(T&& value) { return &value; }
-	template <typename T> static auto& decompose_value(T* value) { return *value; }
-	template <typename T> static auto& decompose_variant(T&& variant) { return variant.value(); }
-	template <typename T> static auto assert_variant(T&& variant) { return variant.has_value(); }
 };
 
 template <typename DstType, typename SrcType>
@@ -93,6 +101,9 @@ static auto copy(const SrcType& rhs) {
 		return dst_traits::compose_value(src_traits::decompose_value(value));
 	}, src_traits::decompose_variant(rhs.v_));
 }
+
+template <typename... Types> struct object_helper { object<Types...>* o; };
+template <typename... Types> struct const_object_helper { const object<Types...>* o; };
 
 } // detail
 
@@ -143,6 +154,7 @@ template <typename... Types>
 struct object : public var_base<detail::traits<object<Types...>>>
 {
 	using base_t = var_base<detail::traits<object<Types...>>>;
+	using ref_t = ref<Types...>;
 	using variant_type = typename base_t::variant_type;
 
 	template <typename T>
@@ -167,8 +179,10 @@ struct ref : public var_base<detail::traits<ref<Types...>>>
 
 	template <typename T> ref(T* value) : base_t{value} {}
 	ref(const ref& rhs) = default;
-	ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+
+	template <typename... SubsetOfTypes>
+	ref(const ref<SubsetOfTypes...>& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 
 	template <typename T>
 	auto operator=(T* value) -> ref<Types...>& {
@@ -177,14 +191,26 @@ struct ref : public var_base<detail::traits<ref<Types...>>>
 	}
 
 	auto operator=(object_t& rhs) -> ref<Types...>& {
-		base_t::v_ = detail::copy<variant_type>(rhs);
+		base_t::v_ = detail::copy<me_t>(rhs);
 		return *this;
 	}
 
 	auto operator=(optional_ref_t& rhs) -> ref<Types...>& {
-		base_t::v_ = detail::copy<variant_type>(rhs);
+		base_t::v_ = detail::copy<me_t>(rhs);
 		return *this;
 	}
+
+	static auto make(object_t& object) -> me_t {
+		detail::object_helper<Types...> helper;
+
+		helper.o = &object;
+
+		return me_t{helper};
+	}
+
+private:
+
+	ref(detail::object_helper<Types...> rhs) : base_t{detail::copy<me_t>(*rhs.o)} {}
 };
 
 template <typename... Types>
@@ -200,7 +226,6 @@ struct const_ref : public var_base<detail::traits<const_ref<Types...>>>
 
 	template <typename T> const_ref(const T* value) : base_t{value} {}
 	const_ref(const const_ref& rhs) = default;
-	const_ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	const_ref(const ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	const_ref(const optional_const_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	const_ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
@@ -238,6 +263,18 @@ struct const_ref : public var_base<detail::traits<const_ref<Types...>>>
 		base_t::v_ = std::move(rhs.v_);
 		return *this;
 	}
+
+	static auto make(const object_t& object) -> me_t {
+		detail::const_object_helper<Types...> helper;
+
+		helper.o = &object;
+
+		return me_t{helper};
+	}
+
+private:
+
+	const_ref(detail::const_object_helper<Types...> rhs) : base_t{detail::copy<me_t>(*rhs.o)} {}
 };
 
 template <typename... Types>
@@ -251,12 +288,15 @@ struct optional_ref : public var_base<detail::traits<optional_ref<Types...>>>
 
 	optional_ref() : base_t{std::nullopt} {}
 	template <typename T> optional_ref(T* value) : base_t{value} {}
-	optional_ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+
 	optional_ref(ref_t& rhs) : base_t{rhs.v_} {}
 	optional_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
 
+	template <typename... SubsetOfTypes>
+	optional_ref(const ref<SubsetOfTypes...>& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+
 	template <typename T>
-	auto operator=(T* value) -> ref<Types...>& {
+	auto operator=(T* value) -> optional_ref<Types...>& {
 		base_t::v_ = value;
 		return *this;
 	}
@@ -276,7 +316,26 @@ struct optional_ref : public var_base<detail::traits<optional_ref<Types...>>>
 		return *this;
 	}
 
+	template <typename... SubsetOfTypes>
+	auto operator=(const ref<SubsetOfTypes...>& rhs) {
+		base_t::v_ = detail::copy<me_t>(rhs);
+		return *this;
+	}
+
 	operator bool() const { return base_t::v_.has_value(); }
+	auto reset() -> void { base_t::v_.reset(); }
+
+	static auto make(const object_t& object) -> me_t {
+		detail::object_helper<Types...> helper;
+
+		helper.o = &object;
+
+		return me_t{helper};
+	}
+
+private:
+
+	optional_ref(object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 };
 
 template <typename... Types>
@@ -292,7 +351,6 @@ struct optional_const_ref : public var_base<detail::traits<optional_const_ref<Ty
 
 	optional_const_ref() : base_t{std::nullopt} {}
 	template <typename T> optional_const_ref(const T* value) : base_t{value} {}
-	optional_const_ref(const object_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	optional_const_ref(const ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	optional_const_ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	optional_const_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
@@ -335,6 +393,19 @@ struct optional_const_ref : public var_base<detail::traits<optional_const_ref<Ty
 	}
 
 	operator bool() const { return base_t::v_.has_value(); }
+	auto reset() -> void { base_t::v_.reset(); }
+
+	static auto make(const object_t& object) -> me_t {
+		detail::const_object_helper<Types...> helper;
+
+		helper.o = &object;
+
+		return me_t{helper};
+	}
+
+private:
+
+	optional_const_ref(detail::const_object_helper<Types...> rhs) : base_t{detail::copy<me_t>(*rhs.o)} {}
 };
 
 template <typename... Types>
