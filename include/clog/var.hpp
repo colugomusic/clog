@@ -116,22 +116,22 @@ struct var_base
 	var_base(T&& initial_value) : v_{std::forward<T>(initial_value)} {}
 
 	template <typename Tag>
-	auto call() {
+	decltype(auto) call() {
 		return std::visit([](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o)); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename Tag>
-	auto call() const {
+	decltype(auto) call() const {
 		return std::visit([](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o)); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename Tag, typename... Args>
-	auto call(Args&&... args) {
+	decltype(auto) call(Args&&... args) {
 		return std::visit([args...](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename Tag, typename... Args>
-	auto call(Args&&... args) const {
+	decltype(auto) call(Args&&... args) const {
 		return std::visit([args...](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
 	}
 
@@ -145,6 +145,10 @@ struct var_base
 
 	template <typename T> auto holds() const {
 		return std::holds_alternative<typename Traits::template compose_type<T>::type>(Traits::decompose_variant(v_));
+	}
+
+	auto operator<(const var_base<Traits>& rhs) const -> bool {
+		return v_ < rhs.v_;
 	}
 
 	variant_type v_;
@@ -183,6 +187,10 @@ struct ref : public var_base<detail::traits<ref<Types...>>>
 
 	template <typename... SubsetOfTypes>
 	ref(const ref<SubsetOfTypes...>& rhs) : base_t{detail::copy<me_t>(rhs)} {}
+
+	auto operator<(const me_t& rhs) const -> bool {
+		return base_t::operator<(rhs);
+	}
 
 	template <typename T>
 	auto operator=(T* value) -> ref<Types...>& {
