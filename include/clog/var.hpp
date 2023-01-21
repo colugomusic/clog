@@ -12,10 +12,10 @@ template <typename... Types> struct ref;
 
 namespace detail {
 
-//template <typename Tag, typename T, typename... Args>
-//auto call(T& o, Args&&... args) { return Tag::call(o, std::move(args)...); }
+template <typename Tag, typename T>
+decltype(auto) call(T* o) { return Tag::call(o); }
 template <typename Tag, typename T, typename... Args>
-auto call(T* o, Args&&... args) { return Tag::call(o, std::move(args)...); }
+decltype(auto) call(T* o, Args&&... args) { return Tag::call(o, std::move(args)...); }
 
 template <typename T> struct traits {};
 
@@ -117,22 +117,22 @@ struct var_base
 
 	template <typename Tag>
 	auto call() {
-		return std::visit([](auto&& o) { return detail::call<Tag>(Traits::decompose_value(o)); }, Traits::decompose_variant(v_));
+		return std::visit([](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o)); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename Tag>
 	auto call() const {
-		return std::visit([](auto&& o) { return detail::call<Tag>(Traits::decompose_value(o)); }, Traits::decompose_variant(v_));
+		return std::visit([](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o)); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename Tag, typename... Args>
 	auto call(Args&&... args) {
-		return std::visit([args...](auto&& o) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
+		return std::visit([args...](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename Tag, typename... Args>
 	auto call(Args&&... args) const {
-		return std::visit([args...](auto&& o) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
+		return std::visit([args...](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename T> auto& get() {
@@ -229,8 +229,6 @@ struct const_ref : public var_base<detail::traits<const_ref<Types...>>>
 	const_ref(const ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	const_ref(const optional_const_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	const_ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	const_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
-	const_ref(optional_const_ref_t&& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 
 	template <typename T> auto operator=(const T* value) -> const_ref<Types...>& {
 		base_t::v_ = value;
@@ -255,12 +253,6 @@ struct const_ref : public var_base<detail::traits<const_ref<Types...>>>
 	auto operator=(optional_ref_t& rhs) -> const_ref<Types...>&
 	{
 		base_t::v_ = detail::copy<me_t>(rhs);
-		return *this;
-	}
-
-	auto operator=(ref_t&& rhs) -> const_ref<Types...>&
-	{
-		base_t::v_ = std::move(rhs.v_);
 		return *this;
 	}
 
@@ -353,7 +345,7 @@ struct optional_const_ref : public var_base<detail::traits<optional_const_ref<Ty
 	template <typename T> optional_const_ref(const T* value) : base_t{value} {}
 	optional_const_ref(const ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	optional_const_ref(const optional_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
-	optional_const_ref(ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
+	optional_const_ref(const const_ref_t& rhs) : base_t{detail::copy<me_t>(rhs)} {}
 	optional_const_ref(const_ref_t&& rhs) : base_t{std::move(rhs.v_)} {}
 
 	template <typename T>
@@ -421,6 +413,34 @@ struct var
 
 	template <typename T>
 	static constexpr auto has_v = has<T>::value;
+};
+
+} // clg
+
+/* experimental */
+#define CLOG_V_CONSTRUCT(Name) \
+	template <typename T> Name(T&& value) : clg::v{std::forward<T>(value)} {} \
+	template <typename T> auto operator=(T&& value) -> Name& { v_ = std::forward<T>(value); return *this; }
+
+#define CLOG_V_FUNC(Name) \
+	template <typename... Args> \
+	auto Name(Args&&...) -> decltype(auto) { std::visit([args...](auto&& o) -> decltype(auto) { return o.Name(std::move(args)...); }, v_); }
+
+namespace clg {
+
+template <typename... Types>
+struct v
+{
+	template <typename T> struct has : std::disjunction<std::is_same<T, Types>...> {};
+	template <typename T> static constexpr auto has_v = has<T>::value;
+	template <typename T> auto& get() { return std::get<T>(v_); }
+	template <typename T> auto& get() const { return std::get<T>(v_); }
+	template <typename T> auto holds() const { return std::holds_alternative<T>; }
+	template <typename T> v(T&& value) : v_{std::forward<T>(value)} {}
+
+protected:
+
+	std::variant<Types...> v_;
 };
 
 } // clg
