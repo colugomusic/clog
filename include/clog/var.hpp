@@ -136,15 +136,20 @@ struct var_base
 	}
 
 	template <typename T> auto& get() {
-		return std::get<typename Traits::template compose_type<T>::type>(Traits::decompose_variant(v_));
+		using CT = typename Traits::template compose_type<T>::type;
+		assert (holds<T>());
+		return std::get<CT>(Traits::decompose_variant(v_));
 	}
 
 	template <typename T> auto& get() const {
-		return std::get<typename Traits::template compose_type<T>::type>(Traits::decompose_variant(v_));
+		using CT = typename Traits::template compose_type<T>::type;
+		assert (holds<T>());
+		return std::get<CT>(Traits::decompose_variant(v_));
 	}
 
 	template <typename T> auto holds() const {
-		return std::holds_alternative<typename Traits::template compose_type<T>::type>(Traits::decompose_variant(v_));
+		using CT = typename Traits::template compose_type<T>::type;
+		return std::holds_alternative<CT>(Traits::decompose_variant(v_));
 	}
 
 	auto operator<(const var_base<Traits>& rhs) const -> bool {
