@@ -429,31 +429,3 @@ struct var
 };
 
 } // clg
-
-/* experimental */
-#define CLOG_V_CONSTRUCT(Name) \
-	template <typename T> Name(T&& value) : clg::v{std::forward<T>(value)} {} \
-	template <typename T> auto operator=(T&& value) -> Name& { v_ = std::forward<T>(value); return *this; }
-
-#define CLOG_V_FUNC(Name) \
-	template <typename... Args> \
-	auto Name(Args&&...) -> decltype(auto) { std::visit([args...](auto&& o) -> decltype(auto) { return o.Name(std::move(args)...); }, v_); }
-
-namespace clg {
-
-template <typename... Types>
-struct v
-{
-	template <typename T> struct has : std::disjunction<std::is_same<T, Types>...> {};
-	template <typename T> static constexpr auto has_v = has<T>::value;
-	template <typename T> auto& get() { return std::get<T>(v_); }
-	template <typename T> auto& get() const { return std::get<T>(v_); }
-	template <typename T> auto holds() const { return std::holds_alternative<T>; }
-	template <typename T> v(T&& value) : v_{std::forward<T>(value)} {}
-
-protected:
-
-	std::variant<Types...> v_;
-};
-
-} // clg
