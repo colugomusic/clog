@@ -89,8 +89,8 @@ public:
 
 	auto operator=(T value) -> cached&
 	{
-		value_ = value;
-		dirty_ = false;
+		cached_base<T>::value_ = value;
+		cached_base<T>::dirty_ = false;
 
 		return *this;
 	}
@@ -98,13 +98,13 @@ public:
 	template <typename... Urgs>
 	auto get(Urgs&&... args) const -> const T&
 	{
-		if (dirty_)
+		if (cached_base<T>::dirty_)
 		{
-			value_ = fn_(std::forward<Urgs>(args)...);
-			dirty_ = false;
+			cached_base<T>::value_ = fn_(std::forward<Urgs>(args)...);
+			cached_base<T>::dirty_ = false;
 		}
 
-		return value_;
+		return cached_base<T>::value_;
 	}
 
 private:
