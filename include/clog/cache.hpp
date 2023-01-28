@@ -41,21 +41,21 @@ public:
 
 	auto operator=(T value) -> cached&
 	{
-		value_ = value;
-		dirty_ = false;
+		cached_base::value_ = value;
+		cached_base::dirty_ = false;
 
 		return *this;
 	}
 
 	auto get() const -> const T&
 	{
-		if (dirty_)
+		if (cached_base::dirty_)
 		{
-			value_ = fn_();
-			dirty_ = false;
+			cached_base::value_ = fn_();
+			cached_base::dirty_ = false;
 		}
 
-		return value_;
+		return cached_base::value_;
 	}
 
 	auto operator*() const { return get(); }
