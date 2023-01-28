@@ -127,12 +127,12 @@ struct var_base
 
 	template <typename Tag, typename... Args>
 	decltype(auto) call(Args&&... args) {
-		return std::visit([args...](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
+		return std::visit([&](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename Tag, typename... Args>
 	decltype(auto) call(Args&&... args) const {
-		return std::visit([args...](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
+		return std::visit([&](auto&& o) -> decltype(auto) { return detail::call<Tag>(Traits::decompose_value(o), std::move(args)...); }, Traits::decompose_variant(v_));
 	}
 
 	template <typename T> auto& get() {
