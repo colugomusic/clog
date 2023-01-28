@@ -112,6 +112,11 @@ struct var_base
 {
 	using variant_type = typename Traits::variant_type;
 
+	var_base(const var_base&) = default;
+	var_base(var_base&&) = default;
+	auto operator=(const var_base&) -> var_base& = default;
+	auto operator=(var_base&&) -> var_base& = default;
+
 	template <typename T>
 	var_base(T&& initial_value) : v_{std::forward<T>(initial_value)} {}
 
@@ -165,6 +170,11 @@ struct object : public var_base<detail::traits<object<Types...>>>
 	using base_t = var_base<detail::traits<object<Types...>>>;
 	using ref_t = ref<Types...>;
 	using variant_type = typename base_t::variant_type;
+
+	object(const object&) = default;
+	object(object&&) = default;
+	auto operator=(const object&) -> object& = default;
+	auto operator=(object&&) -> object& = default;
 
 	template <typename T>
 	object(T&& value) : base_t{std::forward<T>(value)} {}
