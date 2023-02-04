@@ -161,6 +161,10 @@ struct var_base
 		return v_ < rhs.v_;
 	}
 
+	auto operator==(const var_base<Traits>& rhs) const -> bool {
+		return v_ == rhs.v_;
+	}
+
 	variant_type v_;
 };
 
