@@ -180,7 +180,12 @@ struct vector : public std::vector<T>
 
 	auto contains(const T& value) const -> bool
 	{
-		return clg::vectors::sorted::contains(static_cast<base_t>(*this), value, Compare{});
+		return clg::vectors::sorted::contains(static_cast<const base_t&>(*this), value, Compare{});
+	}
+
+	auto find(const T& value) const
+	{
+		return clg::vectors::sorted::find(static_cast<const base_t&>(*this), value, Compare{});
 	}
 
 	auto insert(const T& value) -> void
