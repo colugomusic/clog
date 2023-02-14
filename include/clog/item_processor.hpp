@@ -211,6 +211,9 @@ private:
 	auto release_pusher(size_t index) -> void;
 
 	std::vector<std::unique_ptr<pusher_body_t>> pushers_;
+	std::vector<std::unique_ptr<pusher_body_t>> deferred_add_;
+	std::vector<size_t> deferred_remove_;
+	bool processing_{false};
 
 	friend class lock_free_pusher<QueueImpl, AllocationPolicy>;
 };
@@ -303,7 +306,14 @@ auto lock_free_processor<QueueImpl, AllocationPolicy>::make_pusher(size_t initia
 	auto body{std::make_unique<pusher_body_t>(pushers_.size(), initial_size)};
 	const auto ptr{body.get()};
 
-	pushers_.push_back(std::move(body));
+	if (processing_)
+	{
+		deferred_add_.push_back(std::move(body));
+	}
+	else
+	{
+		pushers_.push_back(std::move(body));
+	}
 
 	return pusher_t(this, ptr);
 }
@@ -311,13 +321,20 @@ auto lock_free_processor<QueueImpl, AllocationPolicy>::make_pusher(size_t initia
 template <typename QueueImpl, typename AllocationPolicy>
 auto lock_free_processor<QueueImpl, AllocationPolicy>::release_pusher(size_t index) -> void
 {
-	pushers_.erase(pushers_.begin() + index);
-
-	index = 0;
-
-	for (const auto& pusher : pushers_)
+	if (processing_)
 	{
-		pusher->index = index++;
+		deferred_remove_.push_back(index);
+	}
+	else
+	{
+		pushers_.erase(pushers_.begin() + index);
+
+		index = 0;
+
+		for (const auto& pusher : pushers_)
+		{
+			pusher->index = index++;
+		}
 	}
 }
 
@@ -325,10 +342,37 @@ template <typename QueueImpl, typename AllocationPolicy>
 template <typename Processor>
 auto lock_free_processor<QueueImpl, AllocationPolicy>::process_all(Processor&& processor) -> void
 {
+	processing_ = true;
+
 	for (const auto& pusher : pushers_)
 	{
 		pusher->q.process_all(processor);
 	}
+
+	if (!deferred_remove_.empty())
+	{
+		for (size_t i = deferred_remove_.size() - 1; i >= 0; i--)
+		{
+			pushers_.erase(pushers_.begin() + deferred_remove_[i]);
+		}
+
+		size_t index = 0;
+
+		for (const auto& pusher : pushers_)
+		{
+			pusher->index = index++;
+		}
+	}
+
+	for (auto& pusher : deferred_add_)
+	{
+		pushers_.push_back(std::move(pusher));
+	}
+
+	deferred_add_.clear();
+	deferred_remove_.clear();
+
+	processing_ = false;
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
