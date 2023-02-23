@@ -646,7 +646,8 @@ public:
 private:
 
 	auto get_empty_slot() -> rcv_handle;
-	auto release(rcv_handle slot) -> int;
+	auto release(rcv_handle slot) -> void;
+	auto release_now(rcv_handle slot) -> void;
 
 	template <typename U>
 	auto push(rcv_handle slot, U&& item) -> void;
@@ -658,6 +659,7 @@ private:
 	{
 		auto clear() -> int;
 		auto is_empty() const -> bool;
+		auto is_processing() const -> bool { return processing_; }
 
 		template <typename Processor>
 		auto process_all(Processor&& processor) -> int;
@@ -698,6 +700,7 @@ private:
 
 	clg::unsafe_rcv<slot> slots_;
 	std::vector<rcv_handle> busy_slots_;
+	std::vector<rcv_handle> deferred_release_;
 	int total_items_{ 0 };
 
 	friend class serial_pusher<T>;
@@ -937,7 +940,21 @@ inline auto serial_processor<T>::push(rcv_handle handle, U&& item, index_t index
 }
 
 template <typename T>
-inline auto serial_processor<T>::release(rcv_handle handle) -> int
+inline auto serial_processor<T>::release(rcv_handle handle) -> void
+{
+	const auto slot{slots_.get(handle)};
+
+	if (slot->is_processing())
+	{
+		deferred_release_.push_back(handle);
+		return;
+	}
+
+	release_now(handle);
+}
+
+template <typename T>
+inline auto serial_processor<T>::release_now(rcv_handle handle) -> void
 {
 	const auto slot{slots_.get(handle)};
 	const auto dropped_items{slot->clear()};
@@ -952,8 +969,6 @@ inline auto serial_processor<T>::release(rcv_handle handle) -> int
 	{
 		busy_slots_.erase(pos);
 	}
-
-	return dropped_items;
 }
 
 template <typename T>
@@ -981,6 +996,13 @@ inline auto serial_processor<T>::process_all(Processor&& processor) -> void
 	}
 	
 	busy_slots_.clear();
+
+	for (auto handle : deferred_release_)
+	{
+		release_now(handle);
+	}
+
+	deferred_release_.clear();
 }
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
