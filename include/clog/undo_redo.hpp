@@ -81,10 +81,6 @@ public:
 	using action_type = undo_redo_action<KeyType>;
 	using action_body_type = undo_redo_detail::action_body<KeyType>;
 
-	auto commit(const action_type& action) -> void {
-		action.commit(this);
-	}
-
 	auto commit(action_body_type action) -> void {
 		if (merge_mode_ == undo_redo_merge_mode::all) {
 			if (!is_same_action(action)) {
@@ -109,6 +105,20 @@ public:
 		}
 
 		commit_no_merging(std::move(action));
+	}
+
+	//template <typename Action,
+	//	typename action = std::remove_cv_t<std::remove_reference_t<Action>>,
+	//	typename e = std::enable_if_t<std::is_same_v<action, action_type>>>
+	template <typename Action>
+	auto commit(Action&& action) -> void {
+		action.commit(this);
+	}
+
+	template <typename Action>
+	auto invoke_and_commit(Action&& action) -> void {
+		action.invoke();
+		action.commit(this);
 	}
 
 	auto undo() -> bool {
