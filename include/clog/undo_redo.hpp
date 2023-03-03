@@ -13,9 +13,10 @@ enum class undo_redo_merge_mode { none, ends, all };
 
 namespace undo_redo_detail {
 
+template <typename KeyType>
 struct action_body
 {
-	std::string name;
+	KeyType key;
 	undo_redo_merge_mode merge_mode;
 	std::deque<undo_redo_command> do_commands;
 	std::deque<undo_redo_command> undo_commands;
@@ -37,13 +38,16 @@ struct action_body
 
 } // undo_redo_detail
 
+template <typename KeyType>
 class undo_redo;
 
+template <typename KeyType>
 class undo_redo_action
 {
 public:
+	using body_type = undo_redo_detail::action_body<KeyType>;
 
-	undo_redo_action(std::string name, undo_redo_merge_mode merge_mode) : body_{name, merge_mode} {}
+	undo_redo_action(KeyType key, undo_redo_merge_mode merge_mode = undo_redo_merge_mode::none) : body_{key, merge_mode} {}
 
 	template <typename Command>
 	auto add_do(Command&& command) {
@@ -52,7 +56,7 @@ public:
 
 	template <typename Command>
 	auto add_undo(Command&& command) {
-		body_.undo_do_commands.push_back(std::forward<Command>(command));
+		body_.undo_commands.push_back(std::forward<Command>(command));
 	}
 
 	auto invoke() const -> void {
@@ -63,22 +67,25 @@ public:
 		body_.invoke_undo();
 	}
 
-	auto commit(undo_redo* mgr) const -> void;
+	auto commit(undo_redo<KeyType>* mgr) const -> void;
 
 private:
 
-	undo_redo_detail::action_body body_;
+	body_type body_;
 };
 
+template <typename KeyType>
 class undo_redo
 {
 public:
+	using action_type = undo_redo_action<KeyType>;
+	using action_body_type = undo_redo_detail::action_body<KeyType>;
 
-	auto commit(const undo_redo_action& action) -> void {
+	auto commit(const action_type& action) -> void {
 		action.commit(this);
 	}
 
-	auto commit(undo_redo_detail::action_body action) -> void {
+	auto commit(action_body_type action) -> void {
 		if (merge_mode_ == undo_redo_merge_mode::all) {
 			if (!is_same_action(action)) {
 				merge_mode_ = undo_redo_merge_mode::none;
@@ -124,7 +131,7 @@ public:
 
 private:
 
-	auto commit_merge_all(undo_redo_detail::action_body action) -> void {
+	auto commit_merge_all(action_body_type action) -> void {
 		const auto latest_action{get_latest_action()};
 		assert (latest_action);
 		latest_action->undo_commands.insert(
@@ -137,39 +144,40 @@ private:
 			action.do_commands.end());
 	}
 
-	auto commit_merge_ends(undo_redo_detail::action_body action) -> void {
+	auto commit_merge_ends(action_body_type action) -> void {
 		const auto latest_action{get_latest_action()};
 		assert (latest_action);
 		latest_action->do_commands = std::move(action.do_commands);
 	}
 
-	auto commit_no_merging(undo_redo_detail::action_body action) -> void {
+	auto commit_no_merging(action_body_type action) -> void {
 		merge_mode_ = action.merge_mode;
 		actions_.push_back(std::move(action));
 	}
 
-	auto get_latest_action() -> undo_redo_detail::action_body* {
+	auto get_latest_action() -> action_body_type* {
 		if (actions_.empty()) return nullptr;
 		return &actions_.back();
 	}
 
-	auto get_latest_action() const -> const undo_redo_detail::action_body* {
+	auto get_latest_action() const -> const action_body_type* {
 		if (actions_.empty()) return nullptr;
 		return &actions_.back();
 	}
 
-	auto is_same_action(const undo_redo_detail::action_body& action) const -> bool {
+	auto is_same_action(const action_body_type& action) const -> bool {
 		const auto latest_action{get_latest_action()};
 		if (!latest_action) return false;
-		return action.name == latest_action->name;
+		return action.key == latest_action->key;
 	}
 
 	size_t position_{0};
-	std::vector<undo_redo_detail::action_body> actions_;
+	std::vector<undo_redo_detail::action_body<KeyType>> actions_;
 	undo_redo_merge_mode merge_mode_{undo_redo_merge_mode::none};
 };
 
-inline auto undo_redo_action::commit(undo_redo* mgr) const -> void {
+template <typename KeyType>
+inline auto undo_redo_action<KeyType>::commit(undo_redo<KeyType>* mgr) const -> void {
 	mgr->commit(body_);
 }
 
