@@ -169,7 +169,7 @@ private:
 	undo_redo_merge_mode merge_mode_{undo_redo_merge_mode::none};
 };
 
-auto undo_redo_action::commit(undo_redo* mgr) const -> void {
+inline auto undo_redo_action::commit(undo_redo* mgr) const -> void {
 	mgr->commit(body_);
 }
 
