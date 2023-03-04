@@ -4,7 +4,6 @@
 #include <functional>
 #include <string>
 #include <deque>
-#include <vector>
 
 namespace clg {
 
@@ -36,9 +35,16 @@ struct action_body
 	}
 };
 
+template <typename KeyType>
+struct null_notifier
+{
+	auto on_redo(KeyType key, size_t position) const -> void{}
+	auto on_undo(KeyType key, size_t position) const -> void{}
+};
+
 } // undo_redo_detail
 
-template <typename KeyType>
+template <typename KeyType, typename Notifier = undo_redo_detail::null_notifier<KeyType>>
 class undo_redo;
 
 template <typename KeyType>
@@ -67,19 +73,29 @@ public:
 		body_.invoke_undo();
 	}
 
-	auto commit(undo_redo<KeyType>* mgr) const -> void;
+	template <typename Notifier>
+	auto commit(undo_redo<KeyType, Notifier>* mgr) const -> void;
 
 private:
 
 	body_type body_;
 };
 
-template <typename KeyType>
+template <typename KeyType, typename Notifier>
 class undo_redo
 {
 public:
 	using action_type = undo_redo_action<KeyType>;
 	using action_body_type = undo_redo_detail::action_body<KeyType>;
+
+	//
+	// length==0 means an unlimited history
+	//
+	undo_redo(size_t length = 0, Notifier notifier = Notifier{})
+		: notifier_{std::move(notifier)}
+		, length_{length}
+	{
+	}
 
 	auto commit(action_body_type action) -> void {
 		if (merge_mode_ == undo_redo_merge_mode::all) {
@@ -128,6 +144,8 @@ public:
 		
 		position_--;
 		actions_[position_].invoke_undo();
+		notifier_.on_undo(actions_[position_].key, position_);
+		return true;
 	}
 
 	auto redo() -> bool {
@@ -136,7 +154,19 @@ public:
 		}
 
 		actions_[position_].invoke();
+		notifier_.on_redo(actions_[position_].key, position_+1);
 		position_++;
+		return true;
+	}
+
+	auto clear() -> void {
+		actions_.clear();
+		merge_mode_ = undo_redo_merge_mode::none;
+		position_ = 0;
+	}
+
+	auto get_position() const -> size_t {
+		return position_;
 	}
 
 private:
@@ -162,7 +192,15 @@ private:
 
 	auto commit_no_merging(action_body_type action) -> void {
 		merge_mode_ = action.merge_mode;
+
+		// If we're back in time, this resize() discards the redo
+		// history and starts a fresh timeline. If there are
+		// shared_ptrs hanging around in the history then they may
+		// hit zero here!
+		actions_.resize(position_);
 		actions_.push_back(std::move(action));
+		position_++;
+		trim();
 	}
 
 	auto get_latest_action() -> action_body_type* {
@@ -181,13 +219,24 @@ private:
 		return action.key == latest_action->key;
 	}
 
+	auto trim() -> void {
+		if (length_ > 0 && position_ <= length_) {
+			return;
+		}
+		actions_.pop_front();
+		position_--;
+	}
+
 	size_t position_{0};
-	std::vector<undo_redo_detail::action_body<KeyType>> actions_;
+	std::deque<undo_redo_detail::action_body<KeyType>> actions_;
 	undo_redo_merge_mode merge_mode_{undo_redo_merge_mode::none};
+	Notifier notifier_;
+	size_t length_;
 };
 
 template <typename KeyType>
-inline auto undo_redo_action<KeyType>::commit(undo_redo<KeyType>* mgr) const -> void {
+template <typename Notifier>
+inline auto undo_redo_action<KeyType>::commit(undo_redo<KeyType, Notifier>* mgr) const -> void {
 	mgr->commit(body_);
 }
 
