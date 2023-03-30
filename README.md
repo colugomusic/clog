@@ -10,11 +10,10 @@ Header-only libraries.
 2. [rcv.hpp](#rcvhpp) - reusable cell vector
 3. [signal.hpp](#signalhpp) - single-threaded signal/slot library
 4. [property.hpp](#propertyhpp) - set/get property library
-5. [expire.hpp](#expirehpp) - dying object notifications
-6. [small_function.hpp](include/clog/small_function.hpp) - like `std::function` except it can never allocate heap memory. not documented
-7. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
-8. [cache.hpp](#cachehpp) - a single cached value
-9. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
+5. [small_function.hpp](include/clog/small_function.hpp) - like `std::function` except it can never allocate heap memory. not documented
+6. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
+7. [cache.hpp](#cachehpp) - a single cached value
+8. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
 
 ## rcv.hpp
 [include/clog/rcv.hpp](include/clog/rcv.hpp)
@@ -290,72 +289,6 @@ cns += a.description >> on_description_changed;
 cns += a.name >> on_name_changed;
 
 a.name = "Harold"; // both those lambdas will be called
-```
-
-## expire.hpp
-[include/clog/expire.hpp](include/clog/expire.hpp)
-
-Requires: [signal.hpp](#signalhpp), [rcv.hpp](#rcvhpp), [vectors.hpp](include/clog/vectors.hpp)
-
-If you inherit from `clg::expirable` you can call `expire()` on it to emit a one-shot "expiry" signal. Repeated calls to `expire()` won't do anything. The expiry signal is automatically emitted when the object is destructed, if `expire()` was not already called explicitly.
-
-A type inheriting from `clg::attacher` can have expirable objects "attached" to it. When the object expires, it is automatically "detached". Objects can also be detached manually.
-
-When an object is attached, `update(clg::attach<T>)` is called. When an object is detached, `update(clg::detach<T>)` is called.
-
-T doesn't need to be a pointer type, but `std::hash<T>` needs to be defined.
-
-```c++
-struct animal : public clg::expirable
-{
-  ...
-};
-
-struct house : public clg::attacher<house>
-{
-  unordered_set<animal*> animals;
-  unordered_map<ID, clg::store> animal_connections;
-  
-  // Called when an animal is attached
-  auto update(clg::attach<animal*> a) -> void
-  {
-    animals.insert(a);
-    
-    const auto on_age_changed = [a](int new_age) { /* do something */ };
-    
-    auto& cns = animal_connections[a->id];
-    
-    cns += a->age >> on_age_changed;
-    
-    on_age_changed(a->age);
-  }
-  
-  // Will be called when the animal expires
-  auto update(clg::detach<animal*> a) -> void
-  {
-    animals.erase(a);
-    animal_connections.erase(a->id);
-  }
-};
-
-...
-
-house h;
-{
-  animal a;
-  animal b;
-  animal c;
-
-  // Attach objects. Calls house::update(clg::attach<animal*>)
-  h << &a;
-  h << &b;
-  h << &c;
-  
-  // Manually detach an object
-  h >> &c;
-  
-  // house::update(clg::detach<animal*>) will be called twice at the end of this scope (for a and b)
-} 
 ```
 
 ## cache.hpp
