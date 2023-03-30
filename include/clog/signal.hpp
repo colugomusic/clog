@@ -82,14 +82,14 @@ public:
 
 	~signal()
 	{
+		do_deferred_disconnections();
+
 		const auto handles { cns_.active_handles() };
 
 		for (const auto handle : handles)
 		{
 			cns_.get(handle)->body->signal = {};
 		}
-
-		do_deferred_disconnections();
 
 		for (const auto handle : handles)
 		{
