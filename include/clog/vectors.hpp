@@ -4,6 +4,10 @@
 #include <cassert>
 #include <vector>
 
+#ifndef CLOG_ASSERT
+#define CLOG_ASSERT assert
+#endif
+
 namespace clg {
 namespace vectors {
 namespace sorted {
@@ -13,7 +17,7 @@ namespace sorted {
 template <typename Begin, typename End, typename T, typename Compare = std::less<T>>
 auto contains(Begin begin, End end, const T& value, Compare compare = Compare{}) -> bool
 {
-	assert (std::is_sorted(begin, end, compare));
+	CLOG_ASSERT (std::is_sorted(begin, end, compare));
 
 	return std::binary_search(begin, end, value, compare);
 }
@@ -28,7 +32,7 @@ auto contains(const std::vector<T>& vector, const T& value, Compare compare = Co
 template <typename T, typename Compare = std::less<T>>
 auto erase_all(std::vector<T>* vector, const T& value, Compare compare = Compare{})
 {
-	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	const auto [beg, end] = std::equal_range(std::cbegin(*vector), std::cend(*vector), value, compare);
 
@@ -44,7 +48,7 @@ auto erase_all(std::vector<T>* vector, const T& value, Compare compare = Compare
 template <typename Begin, typename End, typename T, typename Compare = std::less<T>>
 auto find(Begin begin, End end, const T& value, Compare compare = Compare{})
 {
-	assert (std::is_sorted(begin, end, compare));
+	CLOG_ASSERT (std::is_sorted(begin, end, compare));
 
 	const auto pos { std::lower_bound(begin, end, value, compare) };
 
@@ -71,7 +75,7 @@ auto find(const std::vector<T>& vector, const U& value, Compare compare = Compar
 template <typename T, typename U, typename Compare = std::less<T>>
 auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
 {
-	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), value, compare) };
 
@@ -97,7 +101,7 @@ namespace unique {
 template <typename T, typename U, typename Compare = std::less<T>>
 auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
 {
-	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	auto pos { std::lower_bound(std::begin(*vector), std::end(*vector), value, compare) };
 
@@ -118,7 +122,7 @@ auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> s
 template <typename T, typename U, typename Compare = std::less<T>>
 auto overwrite(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 {
-	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	auto pos { find(*vector, value, compare) };
 
@@ -146,11 +150,11 @@ namespace checked {
 template <typename T, typename U, typename Compare = std::less<T>>
 auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 {
-	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	const auto [pos, success] = unique::insert(vector, std::forward<U>(value), compare);
 
-	assert (success);
+	CLOG_ASSERT (success);
 
 	return pos;
 }
@@ -162,11 +166,11 @@ auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 template <typename T, typename Compare = std::less<T>>
 auto erase(std::vector<T>* vector, const T& value, Compare compare = Compare{}) -> void
 {
-	assert (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	const auto result = sorted::erase_all(vector, value, compare);
 
-	assert (result == 1);
+	CLOG_ASSERT (result == 1);
 }
 
 template <typename T, typename Compare = std::less<T>>
