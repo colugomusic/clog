@@ -165,8 +165,8 @@ public:
 	}
     auto begin() { return iterator_t(&cells_, front_); }
     auto end() { return iterator_t(&cells_, -1); }
-    auto rbegin() { return iterator_t(&cells_, back_); }
-    auto rend() { return iterator_t(&cells_, -1); }
+    auto rbegin() { return reverse_iterator_t(&cells_, back_); }
+    auto rend() { return reverse_iterator_t(&cells_, -1); }
 private:
 	template <typename... Args>
 	auto push_back(Args&&... args) -> int32_t {
