@@ -432,9 +432,9 @@ eleven->get_parent()->remove(eleven);
 
 This is a stable vector implementation that I wrote because I couldn't find any other implementation that I liked.
 
-Stable means that iterators and indices are not invalidated when elements are removed. For example when you add an element at index 5, it will always be at index 5 until it is erased from the vector, even if the elements preceding it are erased.
+Stable in this case means that iterators and indices are not invalidated when elements are removed. For example when you add an element at index 5, it will always be at index 5 until it is erased from the vector, even if the elements preceding it are erased.
 
-There are many ways of implementing this kind of container. This one has some specific caveats which may make it ideal (or not) to your use case:
+There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
  - Elements are arranged in a single contiguous block of memory, but there is extra memory allocated for the control blocks.
  - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. This is achieved by allocating an additional 64 bytes of memory for each element to implement a bi-directional linked list between the occupied positions. The control blocks are positioned inline with each respective element, not in some separate array.
  - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end.
