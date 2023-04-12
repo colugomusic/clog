@@ -27,6 +27,8 @@ struct cell_t {
 		initialize_info();
 	}
 
+	cell_t(const cell_t<T>& rhs) = delete;
+
 	cell_t(cell_t<T>&& rhs) noexcept {
 		initialize_info(rhs.get_info());
 		initialize_value(std::move(rhs.get_value()));
