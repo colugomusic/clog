@@ -14,7 +14,6 @@ Header-only libraries.
 6. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
 7. [cache.hpp](#cachehpp) - a single cached value
 8. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
-9. [stable_vector.hpp](#stable_vectorhpp) - a stable vector
 
 ## rcv.hpp
 [include/clog/rcv.hpp](include/clog/rcv.hpp)
@@ -426,17 +425,3 @@ eleven->get_parent()->remove(eleven);
 // The "eleven" handle is now invalid. You can't use it at
 // all, not even operator bool.
 ```
-
-## stable_vector.hpp
-[include/clog/stable_vector.hpp](include/clog/stable_vector.hpp)
-
-This is a stable vector implementation that I wrote because I couldn't find any other implementation that I liked.
-
-Stable in this case means that iterators and indices are not invalidated when elements are removed. For example when you add an element at index 5, it will always be at index 5 until it is erased from the vector, even if the elements preceding it are erased.
-
-There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
- - Elements are arranged in a single contiguous block of memory, but there is extra memory allocated for the control blocks.
- - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. This is achieved by allocating an additional 64 bytes of memory for each element to implement a bi-directional linked list between the occupied positions. The control blocks are positioned inline with each respective element, not in some separate array.
- - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end.
- - `erase()` won't invalidate references to elements, but `add()` might do if the capacity needs to increase.
- - iterators and indices are never invalidated.
