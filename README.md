@@ -432,11 +432,19 @@ eleven->get_parent()->remove(eleven);
 
 This is a stable vector implementation that I wrote because I couldn't find any other implementation that I liked.
 
-Stable in this case means that iterators and indices are not invalidated when elements are removed. For example when you add an element at index 5, it will always be at index 5 until it is erased from the vector, even if the elements preceding it are erased.
+Stable in this case means that:
+ - When elements are erased, iterators, indices and references to the elements are not invalidated.
+ - When new elements are added, iterators and indices are not invalidated (but references are.)
+
+If this is not "stable" enough for you then here are some alternatives:
+- [david-grs/stable_vector](https://github.com/david-grs/stable_vector)
+  Contiguous storage. Doesn't support deletions, but references are not invalidated when adding new elements.
+- [boost stable_vector](https://www.boost.org/doc/libs/1_81_0/doc/html/container/non_standard_containers.html#container.non_standard_containers.stable_vector)
+  Implemented as a node container or something.
 
 There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
- - Elements are arranged in a single contiguous block of memory, but there is extra memory allocated for the control blocks.
- - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. This is achieved by allocating an additional 64 bytes of memory for each element to implement a bi-directional linked list between the occupied positions. The control blocks are positioned inline with each respective element, not in some separate array.
- - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end.
- - `erase()` won't invalidate references to elements, but `add()` might do if the capacity needs to increase.
- - iterators and indices are never invalidated.
+ - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element.
+ - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied cells then it will be jumped over in a single bound (it is not necessary to visit each cell to check if it's occupied.)
+ - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is no good if the elements need to be iterated over in an ordered way.
+ - `erase()` won't invalidate references to elements, but `add()` does because the capacity might need to increase.
+ - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
