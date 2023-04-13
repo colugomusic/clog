@@ -447,4 +447,4 @@ There are many ways of implementing this kind of container. This one has some sp
  - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied cells then it will be jumped over in a single bound (it is not necessary to visit each cell to check if it's occupied.)
  - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is no good if the elements need to be iterated over in an ordered way.
  - `erase()` won't invalidate references to elements, but `add()` does because the capacity might need to increase.
- - iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
+ - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
