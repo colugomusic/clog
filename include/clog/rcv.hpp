@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstring>
 #include <new>
 #include "vectors.hpp"

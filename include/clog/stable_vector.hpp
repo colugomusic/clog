@@ -1,5 +1,6 @@
 #include <array>
 #include <cstdint>
+#include <iostream>
 #include <vector>
 
 namespace clg {
@@ -14,46 +15,39 @@ struct info_t {
 	int32_t next{-1};
 };
 
-template <typename T> struct dummy { T value; info_t info; };
-
 template <typename T, size_t N>
-struct alignas(alignof(dummy<T>)) aligned_array : public std::array<T, N> {};
+struct alignas(alignof(T)) aligned_array : public std::array<T, N> {};
 
 template <typename T>
 struct cell_t {
-	using storage_t = aligned_array<std::byte, sizeof(info_t) + sizeof(T)>;
-	cell_t() {
-		initialize_info();
-	}
+	using storage_t = aligned_array<std::byte, sizeof(T)>;
+	cell_t() = default;
 	cell_t(const cell_t<T>& rhs) = delete;
-	cell_t(cell_t<T>&& rhs) noexcept {
-		initialize_info(rhs.get_info());
+	cell_t(cell_t<T>&& rhs) noexcept 
+		: info_{std::move(rhs.info_)}
+	{
 		initialize_value(std::move(rhs.get_value()));
-		rhs.destroy_info();
 		rhs.destroy_value();
+	}
+	~cell_t() {
+		destroy_value();
 	}
 	template <typename... Args>
 	auto initialize_value(Args&&... args) -> void {
-		::new(std::addressof(storage_) + sizeof(info_t)) T{std::forward<Args>(args)...};
+		::new(std::addressof(storage_)) T{std::forward<Args>(args)...};
 	}
 	auto get_info() -> info_t& {
-		const auto ptr{reinterpret_cast<info_t*>(std::addressof(storage_))};
-		return *ptr;
+		return info_;
 	}
 	auto get_value() -> T& {
-		const auto ptr{reinterpret_cast<T*>(std::addressof(storage_) + sizeof(info_t))};
+		const auto ptr{reinterpret_cast<T*>(std::addressof(storage_))};
 		return *ptr;
 	}
 	auto destroy_value() -> void {
 		get_value().~T();
 	}
 private:
-	auto initialize_info(info_t info = {}) -> void {
-		::new(std::addressof(storage_)) stable_vector_detail::info_t{info};
-	}
-	auto destroy_info() -> void {
-		get_info().~info_t();
-	}
+	info_t info_;
 	storage_t storage_;
 };
 
@@ -159,6 +153,7 @@ public:
 		if (index < position_) {
 			position_ = index;
 		}
+		//debug_print();
 	}
 	auto operator[](int32_t index) -> T& {
 		return cells_[index].get_value();
@@ -168,8 +163,31 @@ public:
     auto rbegin() { return reverse_iterator_t(&cells_, back_); }
     auto rend() { return reverse_iterator_t(&cells_, -1); }
 private:
+	auto debug_print() {
+		auto i = 0;
+		for (auto& cell : cells_) {
+			const auto& info{cell.get_info()};
+			std::cout << "[" << i << ": " << info.prev << ":" << info.next << "]";
+			i++;
+		}
+		std::cout << "\n";
+		auto pos = front_;
+		if (pos >= 0) {
+			for (;;) {
+				auto& cell{cells_[pos]};
+				const auto& info{cell.get_info()};
+				std::cout << "[" << pos << ": " << info.prev << ":" << info.next << "]";
+				pos = info.next;
+				if (pos == -1) {
+					break;
+				}
+			}
+		}
+		std::cout << "\n";
+	}
 	template <typename... Args>
 	auto push_back(Args&&... args) -> int32_t {
+		//std::cout << "push at position " << position_ << "\n";
 		const auto handle{position_};
 		cells_.resize(position_ + 1);
 		auto& cell{cells_[position_]};
@@ -184,6 +202,7 @@ private:
 		}
 		back_ = position_;
 		position_++;
+		//debug_print();
 		return handle;
 	}
 	template <typename... Args>
@@ -192,21 +211,32 @@ private:
 		cells_[position_].initialize_value(std::forward<Args>(args)...);
 		auto& info{cells_[position_].get_info()};
 		info.prev = position_-1;
-		if (info.prev >= 0) {
-			auto& prev_info{cells_[info.prev].get_info()};
-			info.next = prev_info.next;
-			prev_info.next = position_;
-			if (info.next >= 0) {
-				auto& next_info{cells_[info.next].get_info()};
-				next_info.prev = position_;
-			}
-		} else {
+		if (front_ > position_) {
+			info.prev = -1;
+			info.next = front_;
+			auto& front_info{cells_[front_].get_info()};
+			front_info.prev = position_;
 			front_ = position_;
+		}
+		else {
+			if (info.prev >= 0) {
+				auto& prev_info{cells_[info.prev].get_info()};
+				info.next = prev_info.next;
+				prev_info.next = position_;
+				if (info.next >= 0) {
+					auto& next_info{cells_[info.next].get_info()};
+					next_info.prev = position_;
+				}
+			} else {
+				// Must be the only element
+				info.next = -1;
+			}
 		}
 		if (position_ > back_) {
 			back_ = position_;
 		}
 		position_ = find_next_empty_cell(position_);
+		//debug_print();
 		return handle;
 	}
 	auto find_next_empty_cell(int32_t position) -> int32_t {
