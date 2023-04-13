@@ -13,11 +13,12 @@ static void BM_rcv(benchmark::State& state) {
     std::mt19937 rng(dev());
 	std::uniform_int_distribution<std::mt19937::result_type> add(0, 1);
 	std::uniform_int_distribution<std::mt19937::result_type> remove(0, 2);
+	std::uniform_int_distribution<std::mt19937::result_type> number(0, 10);
     clg::unsafe_rcv<std::function<void()>> funcs;
     int value{1};
     int i{0};
-    auto f = [&value, &i]{
-		if (i++ % 100 == 0) {
+    auto f = [&]{
+		if (number(rng) == 0) {
 			value += value;
 		}
     };
@@ -46,11 +47,12 @@ static void BM_stable_vector(benchmark::State& state) {
     std::mt19937 rng(dev());
 	std::uniform_int_distribution<std::mt19937::result_type> add(0, 1);
 	std::uniform_int_distribution<std::mt19937::result_type> remove(0, 2);
+	std::uniform_int_distribution<std::mt19937::result_type> number(0, 10);
     clg::stable_vector<std::function<void()>> funcs;
     int value{1};
     int i{0};
-    auto f = [&value, &i]{
-		if (i++ % 100 == 0) {
+    auto f = [&]{
+		if (number(rng) == 0) {
 			value += value;
 		}
     };
