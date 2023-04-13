@@ -1,6 +1,5 @@
 #include <array>
 #include <cstdint>
-#include <iostream>
 #include <vector>
 
 namespace clg {
@@ -153,7 +152,6 @@ public:
 		if (index < position_) {
 			position_ = index;
 		}
-		//debug_print();
 	}
 	auto operator[](int32_t index) -> T& {
 		return cells_[index].get_value();
@@ -163,31 +161,8 @@ public:
     auto rbegin() { return reverse_iterator_t(&cells_, back_); }
     auto rend() { return reverse_iterator_t(&cells_, -1); }
 private:
-	auto debug_print() {
-		auto i = 0;
-		for (auto& cell : cells_) {
-			const auto& info{cell.get_info()};
-			std::cout << "[" << i << ": " << info.prev << ":" << info.next << "]";
-			i++;
-		}
-		std::cout << "\n";
-		auto pos = front_;
-		if (pos >= 0) {
-			for (;;) {
-				auto& cell{cells_[pos]};
-				const auto& info{cell.get_info()};
-				std::cout << "[" << pos << ": " << info.prev << ":" << info.next << "]";
-				pos = info.next;
-				if (pos == -1) {
-					break;
-				}
-			}
-		}
-		std::cout << "\n";
-	}
 	template <typename... Args>
 	auto push_back(Args&&... args) -> int32_t {
-		//std::cout << "push at position " << position_ << "\n";
 		const auto handle{position_};
 		cells_.resize(position_ + 1);
 		auto& cell{cells_[position_]};
@@ -202,7 +177,6 @@ private:
 		}
 		back_ = position_;
 		position_++;
-		//debug_print();
 		return handle;
 	}
 	template <typename... Args>
@@ -236,7 +210,6 @@ private:
 			back_ = position_;
 		}
 		position_ = find_next_empty_cell(position_);
-		//debug_print();
 		return handle;
 	}
 	auto find_next_empty_cell(int32_t position) -> int32_t {
