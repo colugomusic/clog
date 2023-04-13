@@ -4,6 +4,10 @@
 #include "clog/rcv.hpp"
 #include "clog/stable_vector.hpp"
 
+static constexpr auto FUNC_COUNT{1000};
+
+// Iterating over an RCV of functions and calling
+// them while randomly adding and removing functions
 static void BM_rcv(benchmark::State& state) {
     std::random_device dev;
     std::mt19937 rng(dev());
@@ -17,7 +21,7 @@ static void BM_rcv(benchmark::State& state) {
 			value += value;
 		}
     };
-    for (auto i = 0; i < 100; i++) {
+    for (auto i = 0; i < FUNC_COUNT; i++) {
         funcs.acquire(f);
     }
     for (auto _ : state) {
@@ -35,6 +39,8 @@ static void BM_rcv(benchmark::State& state) {
 }
 BENCHMARK(BM_rcv);
 
+// Iterating over a stable_vector of functions and calling
+// them while randomly adding and removing functions
 static void BM_stable_vector(benchmark::State& state) {
     std::random_device dev;
     std::mt19937 rng(dev());
@@ -48,7 +54,7 @@ static void BM_stable_vector(benchmark::State& state) {
 			value += value;
 		}
     };
-    for (auto i = 0; i < 100; i++) {
+    for (auto i = 0; i < FUNC_COUNT; i++) {
         funcs.add(f);
     }
     for (auto _ : state) {
