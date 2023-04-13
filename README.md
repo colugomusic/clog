@@ -440,7 +440,7 @@ If this is not "stable" enough for you then here are some alternatives:
 - [david-grs/stable_vector](https://github.com/david-grs/stable_vector)
   Contiguous storage. Doesn't support deletions, but references are not invalidated when adding new elements.
 - [boost stable_vector](https://www.boost.org/doc/libs/1_81_0/doc/html/container/non_standard_containers.html#container.non_standard_containers.stable_vector)
-  Implemented as a node tree or something.
+  Implemented as a node container or something.
 
 There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
  - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element.
