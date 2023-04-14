@@ -33,9 +33,49 @@ If this is not "stable" enough for you then here are some alternatives:
 There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
  - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element.
  - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied cells then it will be jumped over in a single bound (it is not necessary to visit each cell to check if it's occupied.)
- - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is no good if your elements need to be iterated over in an ordered way.
- - `erase()` won't invalidate references to elements, but `add()` does because the capacity might need to increase.
+ - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is probably no good if your elements need to be iterated over in an ordered way.
+ - `erase()` won't invalidate references to other elements, but `add()` does because the capacity might need to increase.
  - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
+
+### Usage
+
+```c++
+#include <clog/stable_vector.hpp>
+...
+clg::stable_vector<std::string>> strings;
+
+// add() returns the index where the element was
+// inserted. The index will never be invalidated
+// unless the element is removed.
+uint32_t hello = strings.add("Hello");
+uint32_t world = strings.add("World");
+
+assert (hello == 0);
+assert (world == 1);
+
+strings[hello] = "Goodbye";
+
+// Prints "Goodbye World"
+for (auto& string : strings) {
+	print(string);
+}
+
+// Erase the string at index 0.
+strings.erase(hello);
+
+// Add another string
+strings.add("Toilet");
+
+// Prints "Toilet World". Note that add() inserted
+// the new string in the hole left over when the
+// other string was erased (at index 0).
+// New strings will always be inserted in the first
+// empty space, or else pushed onto the end of the
+// vector if there are no holes to fill.
+for (auto& string : strings) {
+	print(string);
+}
+```
 
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
