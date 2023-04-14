@@ -8,13 +8,13 @@ Header-only libraries.
 ## Libraries
 1. [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
 2. [rcv.hpp](#rcvhpp) - reusable cell vector
-3. [signal.hpp](#signalhpp) - single-threaded signal/slot library
-4. [property.hpp](#propertyhpp) - set/get property library
-5. [small_function.hpp](include/clog/small_function.hpp) - like `std::function` except it can never allocate heap memory. not documented
-6. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
-7. [cache.hpp](#cachehpp) - a single cached value
-8. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
-9. [stable_vector.hpp](#stable_vectorhpp) - a stable vector
+3. [stable_vector.hpp](#stable_vectorhpp) - a stable vector
+4. [signal.hpp](#signalhpp) - single-threaded signal/slot library
+5. [property.hpp](#propertyhpp) - set/get property library
+6. [small_function.hpp](include/clog/small_function.hpp) - like `std::function` except it can never allocate heap memory. not documented
+7. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
+8. [cache.hpp](#cachehpp) - a single cached value
+9. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
 
 ## rcv.hpp
 [include/clog/rcv.hpp](include/clog/rcv.hpp)
@@ -90,6 +90,28 @@ Note that the memory of the released cell is not freed, but the destructor will 
 
 There is another class in `clg::` named `unsafe_rcv`. The only difference between `rcv` and `unsafe_rcv` is that `rcv::get()` will check that the given handle is valid and return `nullptr` if not. The expense of doing this is a binary search over a sorted vector of known valid handles. In cases where you know your handles are always valid then you might as well use `unsafe_rcv`.
 
+## stable_vector.hpp
+[include/clog/stable_vector.hpp](include/clog/stable_vector.hpp)
+
+This is a stable vector implementation that I wrote because I couldn't find any other implementation that I liked.
+
+Stable in this case means that:
+ - When elements are erased, iterators, indices and references to the elements are not invalidated.
+ - When new elements are added, iterators and indices are not invalidated (but references are.)
+
+If this is not "stable" enough for you then here are some alternatives:
+- [david-grs/stable_vector](https://github.com/david-grs/stable_vector)
+  Contiguous storage. Doesn't support deletions, but references are not invalidated when adding new elements.
+- [boost stable_vector](https://www.boost.org/doc/libs/1_81_0/doc/html/container/non_standard_containers.html#container.non_standard_containers.stable_vector)
+  Implemented as a node container or something.
+
+There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
+ - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element.
+ - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied cells then it will be jumped over in a single bound (it is not necessary to visit each cell to check if it's occupied.)
+ - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is no good if the elements need to be iterated over in an ordered way.
+ - `erase()` won't invalidate references to elements, but `add()` does because the capacity might need to increase.
+ - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
+ 
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
 
@@ -427,24 +449,4 @@ eleven->get_parent()->remove(eleven);
 // all, not even operator bool.
 ```
 
-## stable_vector.hpp
-[include/clog/stable_vector.hpp](include/clog/stable_vector.hpp)
 
-This is a stable vector implementation that I wrote because I couldn't find any other implementation that I liked.
-
-Stable in this case means that:
- - When elements are erased, iterators, indices and references to the elements are not invalidated.
- - When new elements are added, iterators and indices are not invalidated (but references are.)
-
-If this is not "stable" enough for you then here are some alternatives:
-- [david-grs/stable_vector](https://github.com/david-grs/stable_vector)
-  Contiguous storage. Doesn't support deletions, but references are not invalidated when adding new elements.
-- [boost stable_vector](https://www.boost.org/doc/libs/1_81_0/doc/html/container/non_standard_containers.html#container.non_standard_containers.stable_vector)
-  Implemented as a node container or something.
-
-There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
- - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element.
- - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied cells then it will be jumped over in a single bound (it is not necessary to visit each cell to check if it's occupied.)
- - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is no good if the elements need to be iterated over in an ordered way.
- - `erase()` won't invalidate references to elements, but `add()` does because the capacity might need to increase.
- - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
