@@ -80,8 +80,8 @@ public:
 		return connect(std::forward<Slot>(slot));
 	}
 	auto operator()(Args... args) -> void {
-		for (auto pos = cns_.begin(); pos != cns_.end(); pos++) {
-			pos->cb(args...);
+		for (auto& cn : cns_) {
+			cn.cb(args...);
 		}
 	}
 private:
