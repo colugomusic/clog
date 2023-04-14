@@ -37,6 +37,43 @@ There are many ways of implementing this kind of container. This one has some sp
  - `erase()` won't invalidate references to elements, but `add()` does because the capacity might need to increase.
  - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
 
+### Usage
+
+```c++
+#include <clog/stable_vector.hpp>
+...
+clg::stable_vector<std::string>> strings;
+
+// add() returns the index where the element was
+// inserted. The index will never be invalidated
+// unless the element is removed.
+uint32_t hello = strings.add("Hello");
+uint32_t world = strings.add("World");
+
+strings[hello] = "Goodbye";
+
+// Prints "Goodbye World"
+for (auto& string : strings) {
+	print(string);
+}
+
+// Erase the string at index 0.
+strings.erase(hello);
+
+// Add another string
+strings.add("Toilet");
+
+// Prints "Toilet World". Note that add() inserted
+// the new string in the hole left over when the
+// other string was erased (at index 0).
+// New strings will always be inserted in the first
+// empty space, or else pushed onto the end of the
+// vector if there are no holes to fill.
+for (auto& string : strings) {
+	print(string);
+}
+```
+
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
 
