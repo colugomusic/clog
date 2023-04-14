@@ -115,4 +115,19 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		REQUIRE(values[3] == 222);
 		REQUIRE(values[4] == 111);
 	}
+
+	SECTION("erasing at the ends") {
+		auto a = v.add(111);
+		auto b = v.add(222);
+		v.add(333);
+		v.add(444);
+		v.add(555);
+		v.erase(a);
+		REQUIRE(v.size() == 4);
+		REQUIRE(*v.begin() == 222);
+		v.erase(b);
+		v.add(111);
+		REQUIRE(v.size() == 4);
+		REQUIRE(*v.begin() == 111);
+	}
 }
