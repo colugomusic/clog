@@ -50,6 +50,9 @@ clg::stable_vector<std::string>> strings;
 uint32_t hello = strings.add("Hello");
 uint32_t world = strings.add("World");
 
+assert (hello == 0);
+assert (world == 1);
+
 strings[hello] = "Goodbye";
 
 // Prints "Goodbye World"
