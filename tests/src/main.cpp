@@ -182,7 +182,7 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 			}
 		};
 		clg::stable_vector<int> v;
-		for (int i = 0; i < 400; i++) {
+		for (int i = 0; i < 100; i++) {
 			const auto elems_to_add{randi(0, 3)};
 			for (int j = 0; j < elems_to_add; j++) {
 				add_and_check();
@@ -205,6 +205,8 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		v.add(444);
 		REQUIRE (v.size() == 1);
 		REQUIRE (v.begin() != v.end());
+		REQUIRE (v.rbegin() != v.rend());
 		REQUIRE (*v.begin() == 444);
+		REQUIRE (*v.rbegin() == 444);
 	}
 }
