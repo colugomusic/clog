@@ -1,3 +1,5 @@
+#pragma once
+
 #include <array>
 #include <cstdint>
 #include <vector>
@@ -21,7 +23,11 @@ template <typename T>
 struct cell_t {
 	using storage_t = aligned_array<std::byte, sizeof(T)>;
 	cell_t() = default;
-	cell_t(const cell_t<T>& rhs) = delete;
+	cell_t(const cell_t<T>& rhs)
+		: info_{rhs.info_}
+	{
+		initialize_value(rhs.get_value());
+	}
 	cell_t(cell_t<T>&& rhs) noexcept 
 		: info_{std::move(rhs.info_)}
 	{
@@ -38,8 +44,15 @@ struct cell_t {
 	auto get_info() -> info_t& {
 		return info_;
 	}
+	auto get_info() const -> const info_t& {
+		return info_;
+	}
 	auto get_value() -> T& {
 		const auto ptr{reinterpret_cast<T*>(std::addressof(storage_))};
+		return *ptr;
+	}
+	auto get_value() const -> const T& {
+		const auto ptr{reinterpret_cast<const T*>(std::addressof(storage_))};
 		return *ptr;
 	}
 	auto destroy_value() -> void {
@@ -71,6 +84,7 @@ struct iterator_base_t
 	auto operator->() -> pointer {
 		return &(*cells_)[position_].get_value();
 	}
+	auto index() const { return position_; }
 protected:
 	cell_vector_t<T>* cells_;
 	int32_t position_;
@@ -124,7 +138,7 @@ public:
 	using iterator_t = stable_vector_detail::iterator_t<T>;
 	using reverse_iterator_t = stable_vector_detail::reverse_iterator_t<T>;
 	template <typename... Args>
-	auto add(Args&&... args) -> int32_t {
+	auto add(Args&&... args) -> uint32_t {
 		if (size_t(position_) == cells_.size()) {
 			return push_back(std::forward<Args>(args)...);
 		}
@@ -133,7 +147,7 @@ public:
 	auto erase(iterator_t pos) -> void {
 		erase(pos.position_);
 	}
-	auto erase(int32_t index) -> void {
+	auto erase(uint32_t index) -> void {
 		auto& cell{cells_[index]};
 		auto& info{cell.get_info()};
 		cell.destroy_value();
@@ -149,11 +163,11 @@ public:
 		} else {
 			back_ = info.prev;
 		}
-		if (index < position_) {
-			position_ = index;
+		if (static_cast<int32_t>(index) < position_) {
+			position_ = static_cast<int32_t>(index);
 		}
 	}
-	auto operator[](int32_t index) -> T& {
+	auto operator[](uint32_t index) -> T& {
 		return cells_[index].get_value();
 	}
     auto begin() { return iterator_t(&cells_, front_); }
@@ -162,8 +176,8 @@ public:
     auto rend() { return reverse_iterator_t(&cells_, -1); }
 private:
 	template <typename... Args>
-	auto push_back(Args&&... args) -> int32_t {
-		const auto handle{position_};
+	auto push_back(Args&&... args) -> uint32_t {
+		const auto handle{static_cast<uint32_t>(position_)};
 		cells_.resize(position_ + 1);
 		auto& cell{cells_[position_]};
 		cell.initialize_value(std::forward<Args>(args)...);
@@ -180,8 +194,8 @@ private:
 		return handle;
 	}
 	template <typename... Args>
-	auto insert(Args&&... args) -> int32_t {
-		const auto handle{position_};
+	auto insert(Args&&... args) -> uint32_t {
+		const auto handle{static_cast<uint32_t>(position_)};
 		cells_[position_].initialize_value(std::forward<Args>(args)...);
 		auto& info{cells_[position_].get_info()};
 		info.prev = position_-1;

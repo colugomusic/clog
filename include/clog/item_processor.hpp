@@ -5,7 +5,7 @@
 #include <memory>
 #include <mutex>
 #include <unordered_map>
-#include "rcv.hpp"
+#include "stable_vector.hpp"
 
 #if defined(_DEBUG)
 #include <iostream>
@@ -444,10 +444,10 @@ public:
 
 private:
 
-	auto release(clg::rcv_handle handle) -> void;
+	auto release(uint32_t handle) -> void;
 
 	template <typename U>
-	auto push(clg::rcv_handle handle, U&& item) -> void;
+	auto push(uint32_t handle, U&& item) -> void;
 
 	struct queue
 	{
@@ -466,7 +466,7 @@ private:
 		std::mutex mutex_;
 	};
 
-	clg::unsafe_rcv<queue> queues_;
+	clg::stable_vector<queue> queues_;
 	std::mutex mutex_;
 
 	friend class locking_pusher<T>;
@@ -479,7 +479,7 @@ public:
 
 	locking_pusher() = default;
 	locking_pusher(locking_pusher&& rhs) noexcept;
-	locking_pusher(locking_processor<T>* processor, clg::rcv_handle handle);
+	locking_pusher(locking_processor<T>* processor, uint32_t handle);
 	auto operator=(locking_pusher&& rhs) noexcept -> locking_pusher&;
 	~locking_pusher();
 
@@ -491,7 +491,7 @@ public:
 private:
 
 	locking_processor<T>* processor_{};
-	clg::rcv_handle handle_;
+	uint32_t handle_;
 };
 
 //++++++++++++++++++++++++++++++++++++++++++++++++++++
@@ -538,7 +538,7 @@ inline auto locking_processor<T>::make_pusher() -> locking_pusher<T>
 {
 	std::unique_lock lock{mutex_};
 
-	const auto handle{queues_.acquire()};
+	const auto handle{queues_.add(queue{})};
 
 	lock.unlock();
 
@@ -547,19 +547,19 @@ inline auto locking_processor<T>::make_pusher() -> locking_pusher<T>
 
 template <typename T>
 template <typename U>
-inline auto locking_processor<T>::push(clg::rcv_handle handle, U&& item) -> void
+inline auto locking_processor<T>::push(uint32_t handle, U&& item) -> void
 {
 	std::unique_lock lock{mutex_};
 
-	queues_.get(handle)->push(std::forward<U>(item));
+	queues_[handle].push(std::forward<U>(item));
 }
 
 template <typename T>
-inline auto locking_processor<T>::release(clg::rcv_handle handle) -> void
+inline auto locking_processor<T>::release(uint32_t handle) -> void
 {
 	std::unique_lock lock{mutex_};
 
-	queues_.release(handle);
+	queues_.erase(handle);
 }
 
 template <typename T>
@@ -568,9 +568,9 @@ inline auto locking_processor<T>::process_all(Processor&& processor) -> void
 {
 	std::unique_lock lock{mutex_};
 
-	for (const auto handle : queues_.active_handles())
+	for (auto& queue : queues_)
 	{
-		queues_.get(handle)->process_all(processor);
+		queue.process_all(processor);
 	}
 }
 
@@ -586,7 +586,7 @@ inline locking_pusher<T>::locking_pusher(locking_pusher<T>&& rhs) noexcept
 }
 
 template <typename T>
-inline locking_pusher<T>::locking_pusher(locking_processor<T>* processor, clg::rcv_handle handle)
+inline locking_pusher<T>::locking_pusher(locking_processor<T>* processor, uint32_t handle)
 	: processor_{processor}
 	, handle_{handle}
 {
@@ -645,15 +645,15 @@ public:
 
 private:
 
-	auto get_empty_slot() -> rcv_handle;
-	auto release(rcv_handle slot) -> void;
-	auto release_now(rcv_handle slot) -> void;
+	auto get_empty_slot() -> uint32_t;
+	auto release(uint32_t slot) -> void;
+	auto release_now(uint32_t slot) -> void;
 
 	template <typename U>
-	auto push(rcv_handle slot, U&& item) -> void;
+	auto push(uint32_t slot, U&& item) -> void;
 
 	template <typename U>
-	auto push(rcv_handle slot, U&& item, index_t index) -> void;
+	auto push(uint32_t slot, U&& item, index_t index) -> void;
 
 	struct slot
 	{
@@ -698,9 +698,9 @@ private:
 		item_vector pushed_while_processing_;
 	};
 
-	clg::unsafe_rcv<slot> slots_;
-	std::vector<rcv_handle> busy_slots_;
-	std::vector<rcv_handle> deferred_release_;
+	clg::stable_vector<slot> slots_;
+	std::vector<uint32_t> busy_slots_;
+	std::vector<uint32_t> deferred_release_;
 	int total_items_{ 0 };
 
 	friend class serial_pusher<T>;
@@ -713,7 +713,7 @@ public:
 
 	serial_pusher() = default;
 	serial_pusher(serial_pusher&& rhs) noexcept;
-	serial_pusher(serial_processor<T>* processor, rcv_handle slot);
+	serial_pusher(serial_processor<T>* processor, uint32_t slot);
 	auto operator=(serial_pusher&& rhs) noexcept -> serial_pusher<T>&;
 	~serial_pusher();
 
@@ -762,7 +762,7 @@ public:
 private:
 
 	serial_processor<T>* processor_{};
-	rcv_handle slot_;
+	uint32_t slot_;
 	std::unordered_map<typename serial_processor<T>::index_t, T> premapped_items_;
 };
 
@@ -906,19 +906,19 @@ inline auto serial_processor<T>::slot::push(U&& item, index_t index) -> int
 template <typename T>
 inline auto serial_processor<T>::make_pusher() -> serial_pusher<T>
 {
-	return serial_pusher(this, slots_.acquire());
+	return serial_pusher(this, slots_.add(slot{}));
 }
 
 template <typename T>
 template <typename U>
-inline auto serial_processor<T>::push(rcv_handle handle, U&& item) -> void
+inline auto serial_processor<T>::push(uint32_t handle, U&& item) -> void
 {
-	const auto slot{slots_.get(handle)};
-	const auto was_empty{slot->is_empty()};
+	auto& slot{slots_[handle]};
+	const auto was_empty{slot.is_empty()};
 
-	total_items_ += slot->push(std::forward<U>(item));
+	total_items_ += slot.push(std::forward<U>(item));
 
-	if (was_empty && !slot->is_empty())
+	if (was_empty && !slot.is_empty())
 	{
 		busy_slots_.push_back(handle);
 	}
@@ -926,25 +926,25 @@ inline auto serial_processor<T>::push(rcv_handle handle, U&& item) -> void
 
 template <typename T>
 template <typename U>
-inline auto serial_processor<T>::push(rcv_handle handle, U&& item, index_t index) -> void
+inline auto serial_processor<T>::push(uint32_t handle, U&& item, index_t index) -> void
 {
-	const auto slot{slots_.get(handle)};
-	const auto was_empty{slot->is_empty()};
+	auto& slot{slots_[handle]};
+	const auto was_empty{slot.is_empty()};
 
-	total_items_ += slot->push(std::forward<U>(item), index);
+	total_items_ += slot.push(std::forward<U>(item), index);
 
-	if (was_empty && !slot->is_empty())
+	if (was_empty && !slot.is_empty())
 	{
 		busy_slots_.push_back(handle);
 	}
 }
 
 template <typename T>
-inline auto serial_processor<T>::release(rcv_handle handle) -> void
+inline auto serial_processor<T>::release(uint32_t handle) -> void
 {
-	const auto slot{slots_.get(handle)};
+	const auto& slot{slots_[handle]};
 
-	if (slot->is_processing())
+	if (slot.is_processing())
 	{
 		deferred_release_.push_back(handle);
 		return;
@@ -954,14 +954,14 @@ inline auto serial_processor<T>::release(rcv_handle handle) -> void
 }
 
 template <typename T>
-inline auto serial_processor<T>::release_now(rcv_handle handle) -> void
+inline auto serial_processor<T>::release_now(uint32_t handle) -> void
 {
-	const auto slot{slots_.get(handle)};
-	const auto dropped_items{slot->clear()};
+	auto& slot{slots_[handle]};
+	const auto dropped_items{slot.clear()};
 
 	total_items_ -= dropped_items;
 
-	slots_.release(handle);
+	slots_.erase(handle);
 
 	const auto pos{std::find(std::cbegin(busy_slots_), std::cend(busy_slots_), handle)};
 
@@ -983,11 +983,11 @@ inline auto serial_processor<T>::process_all(Processor&& processor) -> void
 
 		for (auto handle : busy_slots)
 		{
-			auto slot{slots_.get(handle)};
+			auto& slot{slots_[handle]};
 
-			if (slot->is_empty()) continue;
+			if (slot.is_empty()) continue;
 
-			total_items_ -= slot->process_all(processor);
+			total_items_ -= slot.process_all(processor);
 
 			assert (total_items_ >= 0);
 
@@ -1017,7 +1017,7 @@ inline serial_pusher<T>::serial_pusher(serial_pusher<T>&& rhs) noexcept
 }
 
 template <typename T>
-inline serial_pusher<T>::serial_pusher(serial_processor<T>* processor, rcv_handle slot)
+inline serial_pusher<T>::serial_pusher(serial_processor<T>* processor, uint32_t slot)
 	: processor_{ processor }
 	, slot_{ slot }
 {

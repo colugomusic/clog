@@ -2,7 +2,7 @@
 
 #include <functional>
 #include <unordered_set>
-#include "rcv.hpp"
+#include "stable_vector.hpp"
 
 namespace clg {
 
@@ -23,7 +23,7 @@ public:
 
 	cn() = default;
 	cn(const cn&) = delete;
-	cn(detail::signal_base* signal, rcv_handle handle);
+	cn(detail::signal_base* signal, uint32_t handle);
 	cn(cn && rhs) noexcept;
 	~cn();
 
@@ -33,15 +33,15 @@ public:
 private:
 
 	detail::cn_body body_{};
-	rcv_handle handle_{};
+	uint32_t handle_{};
 };
 
 namespace detail {
 
 struct signal_base
 {
-	virtual auto disconnect(rcv_handle handle) -> void = 0;
-	virtual auto update(rcv_handle handle, detail::cn_body* body) -> void = 0;
+	virtual auto disconnect(uint32_t handle) -> void = 0;
+	virtual auto update(uint32_t handle, detail::cn_body* body) -> void = 0;
 };
 
 } // detail
@@ -58,11 +58,9 @@ public:
 	signal(signal&& rhs) noexcept
 		: cns_{ std::move(rhs.cns_) }
 	{
-		const auto handles { cns_.active_handles() };
-
-		for (const auto handle : handles)
+		for (auto& cn : cns_)
 		{
-			cns_.get(handle)->body->signal = this;
+			cn.body->signal = this;
 		}
 	}
 
@@ -70,11 +68,9 @@ public:
 	{
 		cns_ = std::move(rhs.cns_);
 
-		const auto handles { cns_.active_handles() };
-
-		for (const auto handle : handles)
+		for (auto& cn : cns_)
 		{
-			cns_.get(handle)->body->signal = this;
+			cn.body->signal = this;
 		}
 
 		return *this;
@@ -84,16 +80,14 @@ public:
 	{
 		do_deferred_disconnections();
 
-		const auto handles { cns_.active_handles() };
-
-		for (const auto handle : handles)
+		for (auto& cn : cns_)
 		{
-			cns_.get(handle)->body->signal = {};
+			cn.body->signal = {};
 		}
 
-		for (const auto handle : handles)
+		for (auto pos = cns_.begin(); pos != cns_.end(); pos++)
 		{
-			deferred_disconnect_.insert(handle);
+			deferred_disconnect_.insert(pos.index());
 		}
 
 		do_deferred_disconnections();
@@ -102,11 +96,11 @@ public:
 	template <typename Slot>
 	[[nodiscard]] auto connect(Slot && slot) -> cn
 	{
-		const auto handle { cns_.acquire() };
+		cn_record record;
 
-		auto record { cns_.get(handle) };
+		record.cb = std::move(slot);
 
-		record->cb = std::move(slot);
+		const auto handle { cns_.add(std::move(record)) };
 
 		return { this, handle };
 	}
@@ -121,13 +115,11 @@ public:
 	{
 		visiting_++;
 
-		const auto handles { cns_.active_handles() };
-
-		for (const auto handle : handles)
+		for (auto pos = cns_.begin(); pos != cns_.end(); pos++)
 		{
-			if (deferred_disconnect_.find(handle) == std::cend(deferred_disconnect_))
+			if (deferred_disconnect_.find(pos.index()) == std::cend(deferred_disconnect_))
 			{
-				cns_.get(handle)->cb(args...);
+				pos->cb(args...);
 			}
 		}
 
@@ -158,7 +150,7 @@ public:
 
 private:
 
-	auto disconnect(rcv_handle handle) -> void override
+	auto disconnect(uint32_t handle) -> void override
 	{
 		if (visiting_ > 0)
 		{
@@ -166,7 +158,7 @@ private:
 			return;
 		}
 
-		cns_.release(handle);
+		cns_.erase(handle);
 	}
 
 	auto do_deferred_disconnections() -> void
@@ -178,14 +170,14 @@ private:
 
 			for (const auto handle : to_disconnect_)
 			{
-				cns_.release(handle);
+				cns_.erase(handle);
 			}
 		}
 	}
 
-	auto update(rcv_handle handle, detail::cn_body* body) -> void override
+	auto update(uint32_t handle, detail::cn_body* body) -> void override
 	{
-		cns_.get(handle)->body = body;
+		cns_[handle].body = body;
 	}
 
 	struct cn_record
@@ -194,7 +186,7 @@ private:
 		cb_t cb;
 	};
 
-	unsafe_rcv<cn_record> cns_;
+	stable_vector<cn_record> cns_;
 
 	// >0 while visiting callbacks
 	int visiting_{0};
@@ -202,8 +194,8 @@ private:
 	// disconnect() might be called while visiting,
 	// so push the handle onto here to disconnect
 	// it later
-	std::unordered_set<rcv_handle> deferred_disconnect_;
-	std::unordered_set<rcv_handle> to_disconnect_;
+	std::unordered_set<uint32_t> deferred_disconnect_;
+	std::unordered_set<uint32_t> to_disconnect_;
 };
 
 class store
@@ -225,7 +217,7 @@ private:
 	std::vector<cn> connections_;
 };
 
-inline cn::cn(detail::signal_base* signal, rcv_handle handle)
+inline cn::cn(detail::signal_base* signal, uint32_t handle)
 	: handle_{handle}
 {
 	body_.signal = signal;
