@@ -1,3 +1,4 @@
+#include <random>
 #include <catch2/catch_test_macros.hpp>
 #include <clog/stable_vector.hpp>
 
@@ -129,5 +130,68 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		v.add(111);
 		REQUIRE(v.size() == 4);
 		REQUIRE(*v.begin() == 111);
+	}
+
+	SECTION("random adds and erases") {
+		std::random_device dev;
+		std::mt19937 rng(dev());
+		auto randi = [&rng](int min, int max) {
+			std::uniform_int_distribution dist(min, max);
+			return dist(rng);
+		};
+		auto unique_value = [] {
+			static int i = 0;
+			return i++;
+		};
+		auto get_handles = [](const clg::stable_vector<int>& v) {
+			std::vector<uint32_t> out;
+			for (auto pos = v.begin(); pos != v.end(); pos++) {
+				out.push_back(pos.index());
+			}
+			return out;
+		};
+		auto contains = [](const std::vector<uint32_t>& handles, uint32_t handle) {
+			return std::find(handles.begin(), handles.end(), handle) != handles.end();
+		};
+		auto add_and_check = [&] {
+			const auto old_handles = get_handles(v);
+			const auto old_size = v.size();
+			const auto handle = v.add(unique_value());
+			const auto new_handles = get_handles(v);
+			const auto new_size = v.size();
+			REQUIRE (!contains(old_handles, handle));
+			REQUIRE (contains(new_handles, handle));
+			REQUIRE (new_size == old_size + 1);
+			REQUIRE (new_handles.size() == old_handles.size() + 1);
+			for (auto handle : old_handles) {
+				REQUIRE(contains(new_handles, handle));
+			}
+		};
+		auto erase_and_check = [&](uint32_t handle) {
+			const auto old_handles = get_handles(v);
+			const auto old_size = v.size();
+			v.erase(handle);
+			const auto new_handles = get_handles(v);
+			const auto new_size = v.size();
+			REQUIRE (contains(old_handles, handle));
+			REQUIRE (!contains(new_handles, handle));
+			REQUIRE (new_size == old_size - 1);
+			REQUIRE (new_handles.size() == old_handles.size() - 1);
+			for (auto handle : new_handles) {
+				REQUIRE(contains(old_handles, handle));
+			}
+		};
+		clg::stable_vector<int> v;
+		for (int i = 0; i < 100; i++) {
+			const auto elems_to_add{randi(0, 10)};
+			for (int j = 0; j < elems_to_add; j++) {
+				add_and_check();
+			}
+			for (auto pos = v.begin(); pos != v.end(); pos++) {
+				if (randi(0, 1) == 0) {
+					erase_and_check(pos.index());
+				}
+			}
+		}
 	}
 }
