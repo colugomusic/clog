@@ -80,6 +80,37 @@ for (auto pos = strings.begin(); pos != strings.end(); pos++) {
 	strings.erase(pos);
 }
 ```
+Here is a visualization of the internal state of the vector as elements are added and erased:
+```c++
+clg::vector<int> v;
+```
+```c++
+auto a = v.add(111);
+auto b = v.add(222);
+auto c = v.add(333);
+auto d = v.add(444);
+auto e = v.add(555);
+[111][222][333][444][555]
+```
+```c++
+v.erase(b);
+v.erase(d);
+[111][   ][333][   ][555]
+```
+```c++
+v.erase(c);
+[111][   ][   ][   ][555]
+```
+```c++
+auto f = v.add(666);
+[111][666][   ][   ][555]
+```
+```c++
+auto g = v.add(777);
+auto h = v.add(888);
+auto i = v.add(999);
+[111][666][777][888][555][999]
+```
 
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
