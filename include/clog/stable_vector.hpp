@@ -258,6 +258,9 @@ private:
 				// Must be the only element
 				info.next = -1;
 			}
+			if (front_ == -1) {
+				front_ = position_;
+			}
 		}
 		if (position_ > back_) {
 			back_ = position_;
