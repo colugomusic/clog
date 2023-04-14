@@ -75,8 +75,8 @@ strings.add("Toilet");
 for (auto pos = strings.begin(); pos != strings.end(); pos++) {
 	print(string);
 	// Erase the string after printing it. It's OK to do
-	// this while iterating the vector - erasing doesn't
-	// invalidate iterators!
+	// this while iterating over the vector - erasing
+	// doesn't invalidate iterators!
 	strings.erase(pos);
 }
 ```
