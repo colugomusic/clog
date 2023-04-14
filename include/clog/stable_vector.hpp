@@ -94,6 +94,8 @@ protected:
 template <typename T>
 struct iterator_t : public iterator_base_t<T>
 {
+	using iterator_base_t<T>::position_;
+
 	iterator_t(cell_vector_t<T>* cells, int32_t position)
 		: iterator_base_t<T>{cells, position}
 	{}
