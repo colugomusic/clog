@@ -92,7 +92,7 @@ protected:
 };
 
 template <typename T>
-struct iterator_t : iterator_base_t<T>
+struct iterator_t : public iterator_base_t<T>
 {
 	iterator_t(cell_vector_t<T>* cells, int32_t position)
 		: iterator_base_t<T>{cells, position}
@@ -111,7 +111,7 @@ struct iterator_t : iterator_base_t<T>
 };
 
 template <typename T>
-struct reverse_iterator_t : iterator_base_t<T>
+struct reverse_iterator_t : public iterator_base_t<T>
 {
 	reverse_iterator_t(cell_vector_t<T>* cells, int32_t position)
 		: iterator_base_t<T>{cells, position}
