@@ -7,88 +7,13 @@ Header-only libraries.
 
 ## Libraries
 1. [vectors.hpp](include/clog/vectors.hpp) - operations for manipulating sorted vectors, documentation in header
-2. [rcv.hpp](#rcvhpp) - reusable cell vector
-3. [stable_vector.hpp](#stable_vectorhpp) - a stable vector
-4. [signal.hpp](#signalhpp) - single-threaded signal/slot library
-5. [property.hpp](#propertyhpp) - set/get property library
-6. [small_function.hpp](include/clog/small_function.hpp) - like `std::function` except it can never allocate heap memory. not documented
-7. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
-8. [cache.hpp](#cachehpp) - a single cached value
-9. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
-
-## rcv.hpp
-[include/clog/rcv.hpp](include/clog/rcv.hpp)
-
-Requires: [vectors.hpp](include/clog/vectors.hpp)
-
-Reusable Cell Vector
-
-It's a vector of T which can only grow. Elements are constructed in-place using `acquire(/*constructor args*/)` and you get back a handle which you can use to access the element. The handle is just an index into the array, but it will never become invalidated until you call `release(handle)`. Even if you erase elements from the middle of the vector, the handle will still be valid, because the logical positions of the existing elements doesn't change.
-
-The public interface is:
-```c++
-template <typename T, typename ResizeStrategy = rcv_default_resize_strategy>
-class rcv
-{
-public:
-	using handle_t = rcv_handle;
-	rcv();
-	rcv(const rcv& rhs);
-	rcv(rcv&& rhs);
-	auto active_handles() const -> std::vector<handle_t>;
-	auto capacity() const -> size_t;
-	auto reserve(size_t size) -> void;
-	auto size() const -> size_t;
-	template <typename... ConstructorArgs>
-	auto acquire(ConstructorArgs... constructor_args) -> handle_t;
-	auto release(handle_t index) -> void;
-	auto get(handle_t index) -> T*;
-};
-```
-
-- T must be copy or move constructible.
-- You can't choose where in the vector new elements are inserted.
-- Elements may become fragmented, but only within a single contiguous block of memory.
-- A cell is empty until a call to `acquire()` constructs an element there.
-
-When iterating over the elements their order is not guaranteed, e.g.
-
-```c++
-a = v.acquire();
-b = v.acquire();
-
-for (auto handle : v.active_handles())
-{
-    // b might be visited before a
-}
-```
-Calling `acquire()` while iterating like this is ok (only the cells returned by `active_handles()` will be visited.) But calling `release()` while visiting is not ok so you should defer releasing until after you finish visiting somehow ([signal.hpp](include/clog/signal.hpp) does this.)
-
-Adding or removing elements from the vector doesn't invalidate indices. Everything "logically" stays where it is in the vector, e.g. an element at index 3 will always be at index 3 even if more storage needs to be allocated. If the vector has to grow then the objects may be copied. If `is_nothrow_move_constructible<T>` then they will be moved instead.
-
-Erasing an element from the middle also doesn't invalidate the handles of the other elements. A slot just opens up at the released position.
-
-`acquire(/*constructor arguments*/)` constructs an element in-place and returns a handle to access it. Retrieve it using `get(handle)`.
-
-```c++
-rsv<thing> items;
-rsv_handle item = items.acquire(/*constructor arguments*/);
-
-// get() just returns a pointer to the object. do
-// whatever you want with it
-items.get(item)->bar();
-*items.get(item) = thing{};
-thing* ptr = items.get(item);
-ptr->bar();
-```
-
-`release()` destroys the element at the given index (handle) and opens up the cell it was occupying. Calling `get()` with the handle that was just released is invalid.
-
-Note that the memory of the released cell is not freed, but the destructor will be run so there will be no object there anymore. If `acquire()` is called later, the new element might be constructed at that newly opened cell, and the handle pointing to that index would become valid again.
-
-### `clg::unsafe_rcv<T>`
-
-There is another class in `clg::` named `unsafe_rcv`. The only difference between `rcv` and `unsafe_rcv` is that `rcv::get()` will check that the given handle is valid and return `nullptr` if not. The expense of doing this is a binary search over a sorted vector of known valid handles. In cases where you know your handles are always valid then you might as well use `unsafe_rcv`.
+2. [stable_vector.hpp](#stable_vectorhpp) - a stable vector
+3. [signal.hpp](#signalhpp) - single-threaded signal/slot library
+4. [property.hpp](#propertyhpp) - set/get property library
+5. [small_function.hpp](include/clog/small_function.hpp) - like `std::function` except it can never allocate heap memory. not documented
+6. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
+7. [cache.hpp](#cachehpp) - a single cached value
+8. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
 
 ## stable_vector.hpp
 [include/clog/stable_vector.hpp](include/clog/stable_vector.hpp)
@@ -108,14 +33,14 @@ If this is not "stable" enough for you then here are some alternatives:
 There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
  - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element.
  - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied cells then it will be jumped over in a single bound (it is not necessary to visit each cell to check if it's occupied.)
- - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is no good if the elements need to be iterated over in an ordered way.
+ - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is no good if your elements need to be iterated over in an ordered way.
  - `erase()` won't invalidate references to elements, but `add()` does because the capacity might need to increase.
  - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
- 
+
 ## signal.hpp
 [include/clog/signal.hpp](include/clog/signal.hpp)
 
-Requires: [rcv.hpp](#rcvhpp), [vectors.hpp](include/clog/vectors.hpp)
+Requires: [stable_vector.hpp](#stable_vectorhpp), [vectors.hpp](include/clog/vectors.hpp)
 
 It's a single-threaded signal/slot libary. I wrote this because `boost::signals2` proved from profiling to be a bottleneck in my project and I couldn't find any other library that I liked.
 
@@ -211,7 +136,7 @@ struct receiver2
 ## property.hpp
 [include/clog/property.hpp](include/clog/property.hpp)
 
-Requires: [signal.hpp](#signalhpp), [rcv.hpp](#rcvhpp), [vectors.hpp](include/clog/vectors.hpp)
+Requires: [signal.hpp](#signalhpp), [stable_vector.hpp](#stable_vectorhpp), [vectors.hpp](include/clog/vectors.hpp)
 
 It's a library on top of [signal.hpp](#signalhpp) which lets you do this kind of thing:
 
