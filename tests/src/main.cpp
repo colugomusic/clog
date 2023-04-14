@@ -75,4 +75,44 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		REQUIRE(values[3] == 222);
 		REQUIRE(values[4] == 111);
 	}
+
+	SECTION("erase while iterating forwards") {
+		v.add(111);
+		v.add(222);
+		v.add(333);
+		v.add(444);
+		v.add(555);
+		std::vector<int> values;
+		for (auto pos = v.begin(); pos != v.end(); pos++) {
+			values.push_back(*pos);
+			v.erase(pos);
+		}
+		REQUIRE(v.size() == 0);
+		REQUIRE(values.size() == 5);
+		REQUIRE(values[0] == 111);
+		REQUIRE(values[1] == 222);
+		REQUIRE(values[2] == 333);
+		REQUIRE(values[3] == 444);
+		REQUIRE(values[4] == 555);
+	}
+
+	SECTION("erase while iterating backwards") {
+		v.add(111);
+		v.add(222);
+		v.add(333);
+		v.add(444);
+		v.add(555);
+		std::vector<int> values;
+		for (auto pos = v.rbegin(); pos != v.rend(); pos++) {
+			values.push_back(*pos);
+			v.erase(pos);
+		}
+		REQUIRE(v.size() == 0);
+		REQUIRE(values.size() == 5);
+		REQUIRE(values[0] == 555);
+		REQUIRE(values[1] == 444);
+		REQUIRE(values[2] == 333);
+		REQUIRE(values[3] == 222);
+		REQUIRE(values[4] == 111);
+	}
 }
