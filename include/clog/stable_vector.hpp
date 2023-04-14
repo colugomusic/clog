@@ -116,6 +116,9 @@ struct iterator_t : public iterator_base_t<T>
 template <typename T>
 struct reverse_iterator_t : public iterator_base_t<T>
 {
+	using iterator_base_t<T>::cells_;
+	using iterator_base_t<T>::position_;
+
 	reverse_iterator_t(cell_vector_t<T>* cells, int32_t position)
 		: iterator_base_t<T>{cells, position}
 	{}
