@@ -178,6 +178,7 @@ public:
 		if (static_cast<int32_t>(index) < position_) {
 			position_ = static_cast<int32_t>(index);
 		}
+		size_--;
 	}
 	auto operator[](uint32_t index) -> T& {
 		return cells_[index].get_value();
@@ -185,6 +186,7 @@ public:
 	auto operator[](uint32_t index) const -> const T& {
 		return cells_[index].get_value();
 	}
+	auto size() const { return size_; }
 	auto begin() { return iterator_t(&cells_, front_); }
 	auto begin() const { return const_iterator_t(&cells_, front_); }
 	auto end() { return iterator_t(&cells_, -1); }
@@ -214,6 +216,7 @@ private:
 		}
 		back_ = position_;
 		position_++;
+		size_++;
 		return handle;
 	}
 	template <typename... Args>
@@ -247,6 +250,7 @@ private:
 			back_ = position_;
 		}
 		position_ = find_next_empty_cell(position_);
+		size_++;
 		return handle;
 	}
 	auto find_next_empty_cell(int32_t position) -> int32_t {
@@ -261,6 +265,7 @@ private:
 	int32_t front_{-1};
 	int32_t back_{-1};
 	int32_t position_{0};
+	size_t size_{0};
 	stable_vector_detail::cell_vector_t<T> cells_;
 };
 
