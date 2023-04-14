@@ -66,15 +66,16 @@ private:
 template <typename T>
 using cell_vector_t = std::vector<cell_t<T>>;
 
-template <typename T>
+template <typename T, bool Const>
 struct iterator_base_t
 {
 	using iterator_category = std::forward_iterator_tag;
 	using difference_type   = std::ptrdiff_t;
-	using value_type        = T;
-	using pointer           = T*;
-	using reference         = T&;
-	iterator_base_t(cell_vector_t<T>* cells, int32_t position)
+	using value_type        = std::conditional_t<Const, std::add_const_t<T>, T>;
+	using pointer           = std::add_pointer_t<value_type>;
+	using reference         = std::add_lvalue_reference_t<value_type>;
+	using vector_type       = std::conditional_t<Const, const cell_vector_t<value_type>, cell_vector_t<value_type>>;
+	iterator_base_t(vector_type* cells, int32_t position)
 		: cells_{cells}
 		, position_{position}
 	{}
@@ -84,21 +85,28 @@ struct iterator_base_t
 	auto operator->() -> pointer {
 		return &(*cells_)[position_].get_value();
 	}
-	auto index() const { return position_; }
+	auto index() const {
+		return position_;
+	}
+	friend bool operator== (const iterator_base_t<T, Const>& a, const iterator_base_t<T, Const>& b) {
+		return a.position_ == b.position_;
+	}
+	friend bool operator!= (const iterator_base_t<T, Const>& a, const iterator_base_t<T, Const>& b) {
+		return a.position_ != b.position_;
+	}
 protected:
-	cell_vector_t<T>* cells_;
+	vector_type* cells_;
 	int32_t position_;
-	friend class stable_vector<T>;
 };
 
-template <typename T>
-struct iterator_t : public iterator_base_t<T>
+template <typename T, bool Const>
+struct iterator_t : public iterator_base_t<T, Const>
 {
-	using iterator_base_t<T>::cells_;
-	using iterator_base_t<T>::position_;
-
-	iterator_t(cell_vector_t<T>* cells, int32_t position)
-		: iterator_base_t<T>{cells, position}
+	using iterator_base_t<T, Const>::cells_;
+	using iterator_base_t<T, Const>::position_;
+	using iterator_base_t<T, Const>::vector_type;
+	iterator_t(vector_type* cells, int32_t position)
+		: iterator_base_t<T, Const>{cells, position}
 	{}
 	auto operator++() -> iterator_t& {
 		position_ = (*cells_)[position_].get_info().next;
@@ -109,18 +117,16 @@ struct iterator_t : public iterator_base_t<T>
 		++(*this);
 		return tmp;
 	}
-	friend bool operator== (const iterator_t& a, const iterator_t& b) { return a.position_ == b.position_; };
-	friend bool operator!= (const iterator_t& a, const iterator_t& b) { return a.position_ != b.position_; };
 };
 
-template <typename T>
-struct reverse_iterator_t : public iterator_base_t<T>
+template <typename T, bool Const>
+struct reverse_iterator_t : public iterator_base_t<T, Const>
 {
-	using iterator_base_t<T>::cells_;
-	using iterator_base_t<T>::position_;
-
+	using iterator_base_t<T, Const>::cells_;
+	using iterator_base_t<T, Const>::position_;
+	using iterator_base_t<T, Const>::vector_type;
 	reverse_iterator_t(cell_vector_t<T>* cells, int32_t position)
-		: iterator_base_t<T>{cells, position}
+		: iterator_base_t<T, Const>{cells, position}
 	{}
 	auto operator++() -> reverse_iterator_t& {
 		position_ = (*cells_)[position_].get_info().prev;
@@ -131,8 +137,6 @@ struct reverse_iterator_t : public iterator_base_t<T>
 		++(*this);
 		return tmp;
 	}
-	friend bool operator== (const reverse_iterator_t& a, const reverse_iterator_t& b) { return a.position_ == b.position_; };
-	friend bool operator!= (const reverse_iterator_t& a, const reverse_iterator_t& b) { return a.position_ != b.position_; };
 };
 
 } // stable_vector_detail
@@ -141,8 +145,10 @@ template <class T>
 class stable_vector
 {
 public:
-	using iterator_t = stable_vector_detail::iterator_t<T>;
-	using reverse_iterator_t = stable_vector_detail::reverse_iterator_t<T>;
+	using iterator_t = stable_vector_detail::iterator_t<T, false>;
+	using reverse_iterator_t = stable_vector_detail::reverse_iterator_t<T, false>;
+	using const_iterator_t = stable_vector_detail::iterator_t<T, true>;
+	using const_reverse_iterator_t = stable_vector_detail::reverse_iterator_t<T, true>;
 	template <typename... Args>
 	auto add(Args&&... args) -> uint32_t {
 		if (size_t(position_) == cells_.size()) {
@@ -176,10 +182,21 @@ public:
 	auto operator[](uint32_t index) -> T& {
 		return cells_[index].get_value();
 	}
+	auto operator[](uint32_t index) const -> const T& {
+		return cells_[index].get_value();
+	}
 	auto begin() { return iterator_t(&cells_, front_); }
+	auto begin() const { return const_iterator_t(&cells_, front_); }
 	auto end() { return iterator_t(&cells_, -1); }
+	auto end() const { return const_iterator_t(&cells_, -1); }
 	auto rbegin() { return reverse_iterator_t(&cells_, back_); }
+	auto rbegin() const { return const_reverse_iterator_t(&cells_, back_); }
 	auto rend() { return reverse_iterator_t(&cells_, -1); }
+	auto rend() const { return const_reverse_iterator_t(&cells_, -1); }
+	auto cbegin() const { return const_iterator_t(&cells_, front_); }
+	auto cend() const { return const_iterator_t(&cells_, -1); }
+	auto crbegin() const { return const_reverse_iterator_t(&cells_, back_); }
+	auto crend() const { return const_reverse_iterator_t(&cells_, -1); }
 private:
 	template <typename... Args>
 	auto push_back(Args&&... args) -> uint32_t {
