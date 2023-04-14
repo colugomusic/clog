@@ -72,8 +72,12 @@ strings.add("Toilet");
 // New strings will always be inserted in the first
 // empty space, or else pushed onto the end of the
 // vector if there are no holes to fill.
-for (auto& string : strings) {
+for (auto pos = strings.begin(); pos != strings.end(); pos++) {
 	print(string);
+	// Erase the string after printing it. It's OK to do
+	// this while iterating over the vector - erasing
+	// doesn't invalidate iterators!
+	strings.erase(pos);
 }
 ```
 
