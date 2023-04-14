@@ -2,9 +2,9 @@
 #include <clog/stable_vector.hpp>
 
 TEST_CASE("stable_vector", "[stable_vector]") {
-    clg::stable_vector<int> v;
+	clg::stable_vector<int> v;
 
-    SECTION("basic add/erase") {
+	SECTION("basic add/erase") {
 		REQUIRE(v.size() == 0);
 		REQUIRE(v.begin() == v.end());
 		REQUIRE(v.rbegin() == v.rend());
@@ -20,7 +20,7 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		REQUIRE(v.size() == 0);
 		REQUIRE(v.begin() == v.end());
 		REQUIRE(v.rbegin() == v.rend());
-    }
+	}
 
 	SECTION("hole filling") {
 		auto a = v.add(12);
