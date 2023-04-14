@@ -156,9 +156,10 @@ public:
 		}
 		return insert(std::forward<Args>(args)...);
 	}
-	auto erase(iterator_t pos) -> void {
-		erase(pos.index());
-	}
+	auto erase(iterator_t pos) -> void { erase(pos.index()); }
+	auto erase(const_iterator_t pos) -> void { erase(pos.index()); }
+	auto erase(reverse_iterator_t pos) -> void { erase(pos.index()); }
+	auto erase(const_reverse_iterator_t pos) -> void { erase(pos.index()); }
 	auto erase(uint32_t index) -> void {
 		auto& cell{cells_[index]};
 		auto& info{cell.get_info()};
