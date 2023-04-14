@@ -157,7 +157,7 @@ public:
 		return insert(std::forward<Args>(args)...);
 	}
 	auto erase(iterator_t pos) -> void {
-		erase(pos.position_);
+		erase(pos.index());
 	}
 	auto erase(uint32_t index) -> void {
 		auto& cell{cells_[index]};
