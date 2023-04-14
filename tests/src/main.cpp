@@ -57,4 +57,22 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		REQUIRE(values[3] == 78);
 		REQUIRE(values[4] == 222);
 	}
+
+	SECTION("reverse iteration") {
+		v.add(111);
+		v.add(222);
+		v.add(333);
+		v.add(444);
+		v.add(555);
+		std::vector<int> values;
+		for (auto pos = v.rbegin(); pos != v.rend(); pos++) {
+			values.push_back(*pos);
+		}
+		REQUIRE(values.size() == 5);
+		REQUIRE(values[0] == 555);
+		REQUIRE(values[1] == 444);
+		REQUIRE(values[2] == 333);
+		REQUIRE(values[3] == 222);
+		REQUIRE(values[4] == 111);
+	}
 }
