@@ -481,6 +481,9 @@ struct Geometry {
 
 clg::data_store<Info, Color, Geometry> data;
 
+// You can store these handles and use them to access specific
+// elements in the store. A handle will be valid until its
+// associated element is erased.
 auto handle0 = data.add(Info{"Frank"}, Color{1.0f, 0.7f, 0.5f, 1.0f}, Geometry{12, 34});
 auto handle1 = data.add(Info{"Peter"}, Color{0.6f, 1.0f, 0.8f, 1.0f}, Geometry{56, 78});
 auto handle2 = data.add(); // If no arguments provided then data is default-initialized
