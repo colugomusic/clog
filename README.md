@@ -63,6 +63,11 @@ for (auto& string : strings) {
 // Erase the string at index 0.
 strings.erase(hello);
 
+// Note that the index of the other string is
+// still valid even though we erased the element
+// before it
+assert (strings[world] == "World");
+
 // Add another string
 strings.add("Toilet");
 
