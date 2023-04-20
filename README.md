@@ -479,20 +479,18 @@ struct Geometry {
 	int size{0};
 };
 
-using KeyType = int64_t;
+clg::data_store<Info, Color, Geometry> data;
 
-clg::data_store<KeyType, Info, Color, Geometry> data;
-
-KeyType key0 = data.add(Info{"Frank"}, Color{1.0f, 0.7f, 0.5f, 1.0f}, Geometry{12, 34});
-KeyType key1 = data.add(Info{"Peter"}, Color{0.6f, 1.0f, 0.8f, 1.0f}, Geometry{56, 78});
-KeyType key2 = data.add(); // If no arguments provided then data is default-initialized
+auto handle0 = data.add(Info{"Frank"}, Color{1.0f, 0.7f, 0.5f, 1.0f}, Geometry{12, 34});
+auto handle1 = data.add(Info{"Peter"}, Color{0.6f, 1.0f, 0.8f, 1.0f}, Geometry{56, 78});
+auto handle2 = data.add(); // If no arguments provided then data is default-initialized
 
 // Access/update a field
-data.get<Info>(key2).name = "Charlie";
+data.get<Info>(handle2).name = "Charlie";
 
 // Erase an item. Doesn't create holes in the data (the last
 // element gets moved into the space created.)
-data.erase(key1);
+data.erase(handle1);
 
 // Process a field.
 // This is essentially iterating over a std::vector<Geometry>

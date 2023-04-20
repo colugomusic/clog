@@ -63,34 +63,40 @@ private:
 	std::vector<T> data_;
 };
 
-template <typename KeyType, typename... Types>
+template <typename... Types>
 class data_store {
 public:
 
-	auto add() -> KeyType {
-		const auto key{key_++};
+	struct handle_t {
+		uint64_t value{0};
+		auto operator++() -> handle_t& { value++; return *this; }
+		auto operator++(int) -> handle_t { handle_t old{*this}; operator++(); return old; }
+	};
+
+	auto add() -> handle_t {
+		const auto handle{handle_++};
 		const auto index{(std::get<data_vector<Types>>(vectors_).push_back(), ...)};
-		book_.set(key, index);
-		return key;
+		book_.set(handle, index);
+		return handle;
 	}
 
-	auto add(Types&&... values) -> KeyType {
-		const auto key{key_++};
+	auto add(Types&&... values) -> handle_t {
+		const auto handle{handle_++};
 		const auto index{(std::get<data_vector<Types>>(vectors_).push_back(std::forward<Types>(values)), ...)};
-		book_.set(key, index);
-		return key;
+		book_.set(handle, index);
+		return handle;
 	}
 
-	auto erase(KeyType key) -> void {
-		const auto index{book_.get_index(key)};
+	auto erase(handle_t handle) -> void {
+		const auto index{get_index(handle)};
 		const auto new_size{(std::get<data_vector<Types>>(vectors_).erase(index), ...)};
 		if (new_size > 0 && index < new_size) {
 			// The new vector size is the index of the element
 			// that was moved into the erased element's place.
-			const auto moved_key{book_.get_key(new_size)};
-			book_.set(moved_key, index);
+			const auto moved_handle{book_.get_handle(new_size)};
+			book_.set(moved_handle, index);
 		}
-		book_.erase(key, new_size);
+		book_.erase(handle, new_size);
 	}
 
 	template <typename T>
@@ -104,13 +110,20 @@ public:
 	}
 
 	template <typename T>
-	auto get(KeyType key) -> T& {
-		return std::get<data_vector<T>>(vectors_)[book_.get_index(key)];
+	auto get(handle_t handle) -> T& {
+		return std::get<data_vector<T>>(vectors_)[get_index(handle)];
 	}
 
 	template <typename T>
-	auto get(KeyType key) const -> const T& {
-		return std::get<data_vector<T>>(vectors_)[book_.get_index(key)];
+	auto get(handle_t handle) const -> const T& {
+		return std::get<data_vector<T>>(vectors_)[get_index(handle)];
+	}
+
+	// Returns the current index for the specified handle.
+	// The returned index will be invalidated by later
+	// calls to erase().
+	auto get_index(handle_t handle) const -> size_t {
+		return book_.get_index(handle);
 	}
 
 private:
@@ -118,35 +131,35 @@ private:
 	using vectors = std::tuple<data_vector<Types>...>;
 
 	struct bimap {
-		auto erase(KeyType key, size_t index) -> void {
-			key_to_index_.erase(key);
-			index_to_key_.erase(index);
+		auto erase(handle_t handle, size_t index) -> void {
+			handle_to_index_.erase(handle);
+			index_to_handle_.erase(index);
 		}
 
-		auto get_index(KeyType key) const -> size_t {
-			const auto pos{key_to_index_.find(key)};
-			assert (pos != key_to_index_.end());
+		auto get_index(handle_t handle) const -> size_t {
+			const auto pos{handle_to_index_.find(handle)};
+			assert (pos != handle_to_index_.end());
 			return pos->second;
 		}
 
-		auto get_key(size_t index) const -> KeyType {
-			const auto pos{index_to_key_.find(index)};
-			assert (pos != index_to_key_.end());
+		auto get_handle(size_t index) const -> handle_t {
+			const auto pos{index_to_handle_.find(index)};
+			assert (pos != index_to_handle_.end());
 			return pos->second;
 		}
 
-		auto set(KeyType key, size_t index) -> void {
-			key_to_index_[key] = index;
-			index_to_key_[index] = key;
+		auto set(handle_t handle, size_t index) -> void {
+			handle_to_index_[handle] = index;
+			index_to_handle_[index] = handle;
 		}
 
 	private:
 
-		std::unordered_map<KeyType, size_t> key_to_index_;
-		std::unordered_map<size_t, KeyType> index_to_key_;
+		std::unordered_map<handle_t, size_t> handle_to_index_;
+		std::unordered_map<size_t, handle_t> index_to_handle_;
 	};
 
-	KeyType key_{0};
+	handle_t handle_{0};
 	vectors vectors_;
 	bimap book_;
 };
