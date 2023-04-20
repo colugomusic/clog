@@ -42,8 +42,8 @@ public:
 		return size();
 	}
 
-    auto operator[](size_t index) -> T& { return data_[index]; }
-    auto operator[](size_t index) const -> const T& { return data_[index]; }
+	auto operator[](size_t index) -> T& { return data_[index]; }
+	auto operator[](size_t index) const -> const T& { return data_[index]; }
 	auto size() const { return data_.size(); }
 	auto begin() { return data_.begin(); }
 	auto begin() const { return data_.begin(); }
@@ -67,19 +67,19 @@ template <typename KeyType, typename... Types>
 class data_store {
 public:
 
-    auto add() -> KeyType {
+	auto add() -> KeyType {
 		const auto key{key_++};
 		const auto index{(std::get<data_vector<Types>>(vectors_).push_back(), ...)};
 		book_.set(key, index);
-        return key;
-    }
+		return key;
+	}
 
-    auto add(Types&&... values) -> KeyType {
+	auto add(Types&&... values) -> KeyType {
 		const auto key{key_++};
 		const auto index{(std::get<data_vector<Types>>(vectors_).push_back(std::forward<Types>(values)), ...)};
 		book_.set(key, index);
-        return key;
-    }
+		return key;
+	}
 
 	auto erase(KeyType key) -> void {
 		const auto index{book_.get_index(key)};
@@ -93,26 +93,26 @@ public:
 		book_.erase(key, new_size);
 	}
 
-    template <typename T>
-    auto get() -> data_vector<T>& {
-        return std::get<data_vector<T>>(vectors_);
-    }
+	template <typename T>
+	auto get() -> data_vector<T>& {
+		return std::get<data_vector<T>>(vectors_);
+	}
 
-    template <typename T>
-    auto get() const -> const data_vector<T>& {
-        return std::get<data_vector<T>>(vectors_);
-    }
+	template <typename T>
+	auto get() const -> const data_vector<T>& {
+		return std::get<data_vector<T>>(vectors_);
+	}
 
-    template <typename T>
-    auto get(KeyType key) -> T& {
-        return std::get<data_vector<T>>(vectors_)[book_.get_index(key)];
-    }
+	template <typename T>
+	auto get(KeyType key) -> T& {
+		return std::get<data_vector<T>>(vectors_)[book_.get_index(key)];
+	}
 
-    template <typename T>
-    auto get(KeyType key) const -> const T& {
-        return std::get<data_vector<T>>(vectors_)[book_.get_index(key)];
-    }
-	
+	template <typename T>
+	auto get(KeyType key) const -> const T& {
+		return std::get<data_vector<T>>(vectors_)[book_.get_index(key)];
+	}
+
 private:
 
 	using vectors = std::tuple<data_vector<Types>...>;
@@ -139,7 +139,7 @@ private:
 			key_to_index_[key] = index;
 			index_to_key_[index] = key;
 		}
-		
+
 	private:
 
 		std::unordered_map<KeyType, size_t> key_to_index_;
