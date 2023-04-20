@@ -29,6 +29,7 @@ auto contains(const std::vector<T>& vector, const T& value, Compare compare = Co
 
 // Erase all instances of the value from the sorted vector.
 // Precondition: The vector is sorted.
+// Returns: The number of elements erased.
 template <typename T, typename Compare = std::less<T>>
 auto erase_all(std::vector<T>* vector, const T& value, Compare compare = Compare{})
 {
