@@ -488,7 +488,7 @@ auto handle0 = data.add(Info{"Frank"}, Color{1.0f, 0.7f, 0.5f, 1.0f}, Geometry{1
 auto handle1 = data.add(Info{"Peter"}, Color{0.6f, 1.0f, 0.8f, 1.0f}, Geometry{56, 78});
 auto handle2 = data.add(); // If no arguments provided then data is default-initialized
 
-// Access/update a field. This incurs an std::unordered_map
+// Access/update a field. This incurs one std::unordered_map
 // lookup to translate from the handle to the internal index
 data.get<Info>(handle2).name = "Charlie";
 
