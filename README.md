@@ -497,6 +497,8 @@ data.get<Geometry>(index) = Geometry{90, 12};
 
 // Erase an item. Doesn't create holes in the data (the last
 // element gets moved into the space created.)
+// Note that this operation invalidates indices previously
+// returned from get_index().
 data.erase(handle1);
 
 // Process a field.
