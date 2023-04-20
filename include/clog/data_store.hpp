@@ -1,4 +1,5 @@
 #include <cassert>
+#include <cstdint>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -67,11 +68,18 @@ template <typename... Types>
 class data_store {
 public:
 
-	struct handle_t {
-		uint64_t value{0};
-		auto operator++() -> handle_t& { value++; return *this; }
-		auto operator++(int) -> handle_t { handle_t old{*this}; operator++(); return old; }
-	};
+    struct handle_t {
+        uint64_t value{0};
+        auto operator++() -> handle_t& { value++; return *this; }
+        auto operator++(int) -> handle_t { handle_t old{*this}; operator++(); return old; }
+        auto operator==(const handle_t& rhs) const { return value == rhs.value; }
+    };
+
+    struct handle_hash_t {
+        auto operator()(const handle_t& handle) const -> std::size_t {
+            return std::hash<int64_t>()(handle.value);
+        }
+    };
 
 	auto add() -> handle_t {
 		const auto handle{handle_++};
@@ -99,32 +107,19 @@ public:
 		book_.erase(handle, new_size);
 	}
 
-	template <typename T>
-	auto get() -> data_vector<T>& {
-		return std::get<data_vector<T>>(vectors_);
-	}
-
-	template <typename T>
-	auto get() const -> const data_vector<T>& {
-		return std::get<data_vector<T>>(vectors_);
-	}
-
-	template <typename T>
-	auto get(handle_t handle) -> T& {
-		return std::get<data_vector<T>>(vectors_)[get_index(handle)];
-	}
-
-	template <typename T>
-	auto get(handle_t handle) const -> const T& {
-		return std::get<data_vector<T>>(vectors_)[get_index(handle)];
-	}
-
 	// Returns the current index for the specified handle.
 	// The returned index will be invalidated by later
 	// calls to erase().
 	auto get_index(handle_t handle) const -> size_t {
 		return book_.get_index(handle);
 	}
+
+	template <typename T> auto get() -> data_vector<T>& { return std::get<data_vector<T>>(vectors_); }
+	template <typename T> auto get() const -> const data_vector<T>& { return std::get<data_vector<T>>(vectors_); }
+	template <typename T> auto get(handle_t handle) -> T& { return get<T>(get_index(handle)); }
+	template <typename T> auto get(handle_t handle) const -> const T& { return get<T>(get_index(handle)); }
+	template <typename T> auto get(size_t index) -> T& { return std::get<data_vector<T>>(vectors_)[index]; }
+	template <typename T> auto get(size_t index) const -> const T& { return std::get<data_vector<T>>(vectors_)[index]; }
 
 private:
 
@@ -155,7 +150,7 @@ private:
 
 	private:
 
-		std::unordered_map<handle_t, size_t> handle_to_index_;
+		std::unordered_map<handle_t, size_t, handle_hash_t> handle_to_index_;
 		std::unordered_map<size_t, handle_t> index_to_handle_;
 	};
 

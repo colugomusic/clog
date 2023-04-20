@@ -485,8 +485,15 @@ auto handle0 = data.add(Info{"Frank"}, Color{1.0f, 0.7f, 0.5f, 1.0f}, Geometry{1
 auto handle1 = data.add(Info{"Peter"}, Color{0.6f, 1.0f, 0.8f, 1.0f}, Geometry{56, 78});
 auto handle2 = data.add(); // If no arguments provided then data is default-initialized
 
-// Access/update a field
+// Access/update a field. This incurs an std::unordered_map
+// lookup to translate from the handle to the internal index
 data.get<Info>(handle2).name = "Charlie";
+
+// If you are doing many accesses then you could get the index
+// first and use that instead to avoid repeated map lookups:
+auto index = data.get_index(handle2);
+data.get<Color>(index) = Color{0.0f, 0.0f, 0.0f, 1.0f};
+data.get<Geometry>(index) = Geometry{90, 12};
 
 // Erase an item. Doesn't create holes in the data (the last
 // element gets moved into the space created.)
