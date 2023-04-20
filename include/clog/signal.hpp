@@ -1,18 +1,15 @@
 #pragma once
 
 #include <functional>
-#include <unordered_set>
 #include "stable_vector.hpp"
 
 namespace clg {
 
 namespace detail {
 
-struct signal_base;
-
-struct cn_body
-{
-	signal_base* signal{};
+struct cn_body {
+	std::function<void(uint32_t)> disconnect;
+	std::function<void(uint32_t, cn_body*)> update;
 };
 
 } // detail
@@ -22,28 +19,49 @@ class cn
 public:
 	cn() = default;
 	cn(const cn&) = delete;
-	cn(detail::signal_base* signal, uint32_t handle);
-	cn(cn && rhs) noexcept;
-	~cn();
+	cn(detail::cn_body body, uint32_t handle)
+		: body_{std::move(body)}
+		, handle_{handle}
+	{
+		body_.update(handle_, &body_);
+	}
+	cn(cn&& rhs) noexcept
+		: body_{std::move(rhs.body_)}
+		, handle_{rhs.handle_}
+	{
+		rhs.body_ = {};
+		if (!body_.update) {
+			return;
+		}
+		body_.update(handle_, &body_);
+	}
+	~cn() {
+		if (!body_.disconnect) {
+			return;
+		}
+		body_.disconnect(handle_);
+	}
 	auto operator=(cn&) -> cn& = delete;
-	auto operator=(cn && rhs) noexcept -> cn&;
+	auto operator=(cn&& rhs) noexcept -> cn& {
+		if (body_.disconnect) {
+			body_.disconnect(handle_);
+		}
+		body_ = std::move(rhs.body_);
+		handle_ = rhs.handle_;
+		rhs.body_ = {};
+		if (!body_.update) {
+			return *this;
+		}
+		body_.update(handle_, &body_);
+		return *this;
+	}
 private:
 	detail::cn_body body_{};
 	uint32_t handle_{};
 };
 
-namespace detail {
-
-struct signal_base
-{
-	virtual auto disconnect(uint32_t handle) -> void = 0;
-	virtual auto update(uint32_t handle, detail::cn_body* body) -> void = 0;
-};
-
-} // detail
-
 template <typename ... Args>
-class signal : public detail::signal_base
+class signal
 {
 	using cb_t = std::function<void(Args...)>;
 public:
@@ -53,19 +71,19 @@ public:
 		: cns_{ std::move(rhs.cns_) }
 	{
 		for (auto& cn : cns_) {
-			cn.body->signal = this;
+			update(cn.body);
 		}
 	}
 	auto operator=(signal&& rhs) noexcept -> signal& {
 		cns_ = std::move(rhs.cns_);
 		for (auto& cn : cns_) {
-			cn.body->signal = this;
+			update(cn.body);
 		}
 		return *this;
 	}
 	~signal() {
 		for (auto& cn : cns_) {
-			cn.body->signal = {};
+			(*cn.body) = {};
 		}
 	}
 	template <typename Slot>
@@ -73,7 +91,9 @@ public:
 		cn_record record;
 		record.cb = std::move(slot); 
 		const auto handle{cns_.add(std::move(record))};
-		return cn{this, handle};
+		detail::cn_body body;
+		update(&body);
+		return cn{std::move(body), handle};
 	}
 	template <typename Slot>
 	[[nodiscard]] auto operator>>(Slot && slot) -> cn {
@@ -85,17 +105,19 @@ public:
 		}
 	}
 private:
-	auto disconnect(uint32_t handle) -> void override {
-		cns_.erase(handle);
-	}
-	auto update(uint32_t handle, detail::cn_body* body) -> void override {
-		cns_[handle].body = body;
+	auto update(detail::cn_body* body) -> void {
+		body->disconnect = [this](uint32_t handle) {
+			cns_.erase(handle);
+		};
+		body->update = [this](uint32_t handle, detail::cn_body* body) {
+			cns_[handle].body = body;
+		};
 	}
 	struct cn_record {
 		detail::cn_body* body{};
 		cb_t cb;
 	};
-	stable_vector<cn_record> cns_;
+	clg::stable_vector<cn_record> cns_;
 };
 
 class store
@@ -110,40 +132,5 @@ public:
 private:
 	std::vector<cn> connections_;
 };
-
-inline cn::cn(detail::signal_base* signal, uint32_t handle)
-	: handle_{handle}
-{
-	body_.signal = signal;
-	signal->update(handle_, &body_);
-}
-
-inline cn::cn(cn && rhs) noexcept
-	: body_{rhs.body_}
-	, handle_{rhs.handle_}
-{
-	rhs.body_ = {};
-	if (!body_.signal) return;
-	body_.signal->update(handle_, &body_);
-}
-
-inline auto cn::operator=(cn && rhs) noexcept -> cn& {
-	if (body_.signal) {
-		body_.signal->disconnect(handle_);
-	}
-	body_ = rhs.body_;
-	handle_ = rhs.handle_;
-	rhs.body_ = {};
-	if (!body_.signal) {
-		return *this;
-	}
-	body_.signal->update(handle_, &body_);
-	return *this;
-}
-
-inline cn::~cn() {
-	if (!body_.signal) return;
-	body_.signal->disconnect(handle_);
-}
 
 } // clg

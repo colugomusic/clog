@@ -2,8 +2,11 @@
 #include <random>
 #include <benchmark/benchmark.h>
 #include "clog/rcv.hpp"
+#include "clog/signal.hpp"
 #include "clog/stable_vector.hpp"
 
+static constexpr auto SIGNAL_CONN_COUNT{1000};
+static constexpr auto SIGNAL_EMIT_COUNT{1000};
 static constexpr auto FUNC_COUNT{1000};
 
 // Iterating over an RCV of functions and calling
@@ -74,5 +77,24 @@ static void BM_stable_vector(benchmark::State& state) {
     }
 }
 BENCHMARK(BM_stable_vector);
+
+static void BM_signal(benchmark::State& state) {
+    clg::signal<int> signal;
+    clg::store conns;
+
+    for (auto i = 0; i < SIGNAL_CONN_COUNT; i++) {
+        static int y = 0;
+        conns += signal >> [](int x) {
+            x += y;
+        };
+    }
+
+    for (auto _ : state) {
+		for (auto i = 0; i < SIGNAL_EMIT_COUNT; i++) {
+            signal(i);
+		}
+    }
+}
+BENCHMARK(BM_signal);
 
 BENCHMARK_MAIN();
