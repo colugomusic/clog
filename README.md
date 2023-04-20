@@ -14,6 +14,7 @@ Header-only libraries.
 6. [item_processor.hpp](include/clog/item_processor.hpp) - push items to be processed later, from the main thread or a worker thread or a realtime processing thread. not documented
 7. [cache.hpp](#cachehpp) - a single cached value
 8. [tree.hpp](#treehpp) - an acyclic, unbalanced, ordered tree
+9. [data_store.hpp](#data_storehpp) - data-oriented storage container
 
 ## stable_vector.hpp
 [include/clog/stable_vector.hpp](include/clog/stable_vector.hpp)
@@ -454,4 +455,49 @@ eleven->get_parent()->remove(eleven);
 // all, not even operator bool.
 ```
 
+## data_store.hpp
+[include/clog/data_store.hpp](include/clog/data_store.hpp)
 
+Data-oriented storage container. Each type gets stored in its own contiguous array. Cache efficiency!
+
+### Usage
+```c++
+
+struct Info {
+	std::string name;
+};
+
+struct Color {
+	float r{1.0f};
+	float g{1.0f};
+	float b{1.0f};
+	float a{1.0f};
+};
+
+struct Geometry {
+	int position{0};
+	int size{0};
+};
+
+using KeyType = int64_t;
+
+clg::data_store<KeyType, Info, Color, Geometry> data;
+
+KeyType key0 = data.add(Info{"Frank"}, Color{1.0f, 0.7f, 0.5f, 1.0f}, Geometry{12, 34});
+KeyType key1 = data.add(Info{"Peter"}, Color{0.6f, 1.0f, 0.8f, 1.0f}, Geometry{56, 78});
+KeyType key2 = data.add(); // If no arguments provided then data is default-initialized
+
+// Access/update a field
+data.get<Info>(key2).name = "Charlie";
+
+// Erase an item. Doesn't create holes in the data (the last
+// element gets moved into the space created.)
+data.erase(key1);
+
+// Process a field.
+// This is essentially iterating over a std::vector<Geometry>
+for (auto& geometry : data.get<Geometry>()) {
+	geometry.position += 1;
+	geometry.size += 1;
+}
+```
