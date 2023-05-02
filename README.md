@@ -85,6 +85,15 @@ for (auto pos = strings.begin(); pos != strings.end(); pos++) {
 	// doesn't invalidate iterators!
 	strings.erase(pos);
 }
+
+// DO NOT DO THIS:
+// Iterating like this is bad because the stable_vector
+// can end up in a state where there are holes in the
+// data. The iterators understand how to jump over these
+// gaps but here we would access uninitialized memory
+for (size_t i = 0; i < strings.size(); i++) {
+	bad_access(strings[i]);
+}
 ```
 Here is a visualization of the internal state of the vector as elements are added and erased:
 ```c++
