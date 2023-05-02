@@ -82,8 +82,8 @@ protected:
 template <typename T>
 struct mutable_iterator_base_t : public iterator_base_t<T>
 {
-	using iterator_base_t<T>::iterator_category;
-	using iterator_base_t<T>::difference_type;
+	using typename iterator_base_t<T>::iterator_category;
+	using typename iterator_base_t<T>::difference_type;
 	using iterator_base_t<T>::position_;
 	using value_type        = T;
 	using pointer           = T*;
@@ -98,8 +98,8 @@ protected:
 template <typename T>
 struct const_iterator_base_t : public iterator_base_t<T>
 {
-	using iterator_base_t<T>::iterator_category;
-	using iterator_base_t<T>::difference_type;
+	using typename iterator_base_t<T>::iterator_category;
+	using typename iterator_base_t<T>::difference_type;
 	using iterator_base_t<T>::position_;
 	using value_type        = const T;
 	using pointer           = const T*;
