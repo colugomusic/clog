@@ -6,7 +6,7 @@
 
 namespace clg {
 
-namespace stable_vector_detail {
+namespace simple_stable_vector_detail {
 
 template <typename T, size_t N>
 struct alignas(alignof(T)) aligned_array : public std::array<T, N> {};
