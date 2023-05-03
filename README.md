@@ -31,7 +31,7 @@ If this is not "stable" enough for you then here are some alternatives:
 - [boost stable_vector](https://www.boost.org/doc/libs/1_81_0/doc/html/container/non_standard_containers.html#container.non_standard_containers.stable_vector)
   Implemented as a node container or something.
   
-In my opinion reference stability is not particularly important as you can just store indices instead and use those to access your data. I promise they really are indices so accessing an element is fast. You can even store the iterators if you want since they are never invalidated.
+In my opinion reference stability is not particularly important as you can just store indices instead and use those to access your data. I promise they really are indices so accessing an element is fast. You can even store the iterators if you want since, like indices, they are never invalidated for the lifetime of the stable_vector.
 
 There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
  - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied positions then it will be jumped over in a single bound (it is not necessary to visit each position to check if it's occupied.)
