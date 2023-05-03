@@ -78,6 +78,9 @@ public:
 		}
 		size_--;
 	}
+	auto is_valid(uint32_t index) const -> bool {
+		return size_ > 0 && index < size_ && cells_[index].is_occupied();
+	}
 	auto operator[](uint32_t index) -> T& {
 		return cells_[index].get_value();
 	}
