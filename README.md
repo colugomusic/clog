@@ -34,12 +34,14 @@ If this is not "stable" enough for you then here are some alternatives:
 In my opinion reference stability is not particularly important as you can just store indices instead and use those to access your data. I promise they really are indices so accessing an element is fast.
 
 There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
- - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied cells then it will be jumped over in a single bound (it is not necessary to visit each cell to check if it's occupied.)
+ - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied positions then it will be jumped over in a single bound (it is not necessary to visit each position to check if it's occupied.)
  - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element. The control blocks are required by the iterators so they can correctly traverse the elements while still moving forwards in a cache-friendly manner.
  - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is probably no good if your elements need to be iterated over in an ordered way.
  - `erase()` won't invalidate references to other elements, but `add()` does because the capacity might need to increase.
  - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
  - It's memory efficient in that the holes left behind by `erase()` are filled up again when new elements are added. You could also argue that it's not memory efficient because we are cramming in that 64-byte control block next to each element.
+ 
+If you never actually want to iterate over the elements, and just want a way to store things in a dynamic array and access them via index without the overhead of a map lookup, then there is also [simple_stable_vector.hpp](include/clog/simple_stable_vector.hpp) which requires a much smaller control block to keep track of empty positions.
 
 ### Usage
 
