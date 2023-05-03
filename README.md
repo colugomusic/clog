@@ -30,13 +30,16 @@ If this is not "stable" enough for you then here are some alternatives:
   Contiguous storage. Doesn't support deletions, but references are not invalidated when adding new elements.
 - [boost stable_vector](https://www.boost.org/doc/libs/1_81_0/doc/html/container/non_standard_containers.html#container.non_standard_containers.stable_vector)
   Implemented as a node container or something.
+  
+In my opinion reference stability is not particularly important as you can just store indices instead and use those to access your data. I promise they really are indices so accessing an element is fast.
 
 There are many ways of implementing this kind of container. This one has some specific tradeoffs and caveats which may make it ideal (or not) to your use case:
- - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element.
  - `begin()`, `end()`, `rbegin()` and `rend()` iterators are provided. When an element is erased its position is just considered to be empty and will be skipped while iterating. If there is a large hole between two occupied cells then it will be jumped over in a single bound (it is not necessary to visit each cell to check if it's occupied.)
+ - Elements are arranged in a single contiguous block of memory, but there is a 64-byte control block allocated alongside each element. The control blocks are required by the iterators so they can correctly traverse the elements while still moving forwards in a cache-friendly manner.
  - When an element is added to the vector it is always inserted in the first empty position if there is one. If there isn't one then it is inserted at the end. Therefore this container is probably no good if your elements need to be iterated over in an ordered way.
  - `erase()` won't invalidate references to other elements, but `add()` does because the capacity might need to increase.
  - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
+ - It's memory efficient in that the holes left behind by `erase()` are filled up again when new elements are added. You could also argue that it's not memory efficient because we are cramming in that 64-byte control block next to each element.
 
 ### Usage
 
@@ -85,6 +88,24 @@ for (auto pos = strings.begin(); pos != strings.end(); pos++) {
 	// doesn't invalidate iterators!
 	strings.erase(pos);
 }
+
+// DO NOT DO THIS:
+// Iterating like this is bad because the stable_vector
+// can end up in a state where there are holes in the
+// data. The iterators understand how to jump over these
+// gaps but here we would access uninitialized memory.
+for (size_t i = 0; i < strings.size(); i++) {
+	bad_access(strings[i]);
+}
+
+// ALSO DO NOT DO THIS:
+std::string* first_string = &strings[0];
+std::string* second_string = ++first_string;
+// Remember the underlying elements are stored
+// contiguously, but they're wrapped up in a special
+// wrapper type consisting of the value and the
+// control block, so iterating between them using
+// pointer arithmetic is invalid.
 ```
 Here is a visualization of the internal state of the vector as elements are added and erased:
 ```c++
