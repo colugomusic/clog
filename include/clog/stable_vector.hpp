@@ -193,6 +193,23 @@ public:
 		}
 		size_--;
 	}
+	auto is_valid(uint32_t index) const -> bool {
+		if (size_ == 0 || index >= size_) {
+			return false;
+		}
+		const auto& info{cells_[index].get_info()};
+		if (info.prev == -1 && info.next == -1) {
+			// Only element
+			return true;
+		}
+		if (info.prev >= 0) {
+			return cells_[info.prev].get_info().next == index;
+		}
+		if (info.next >= 0) {
+			return cells_[info.next].get_info().prev == index;
+		}
+		return false;
+	}
 	auto operator[](uint32_t index) -> T& {
 		return cells_[index].get_value();
 	}

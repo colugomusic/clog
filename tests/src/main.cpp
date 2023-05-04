@@ -10,6 +10,7 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		REQUIRE(v.begin() == v.end());
 		REQUIRE(v.rbegin() == v.rend());
 		auto a = v.add(123);
+		REQUIRE(v.is_valid(a));
 		REQUIRE(a == 0);
 		REQUIRE(v.size() == 1);
 		REQUIRE(v.begin() != v.end());
@@ -18,6 +19,7 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		v[a] = 456;
 		REQUIRE(v[a] == 456);
 		v.erase(a);
+		REQUIRE(!v.is_valid(a));
 		REQUIRE(v.size() == 0);
 		REQUIRE(v.begin() == v.end());
 		REQUIRE(v.rbegin() == v.rend());
@@ -28,6 +30,10 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		auto b = v.add(34);
 		auto c = v.add(56);
 		auto d = v.add(78);
+		REQUIRE(v.is_valid(a));
+		REQUIRE(v.is_valid(b));
+		REQUIRE(v.is_valid(c));
+		REQUIRE(v.is_valid(d));
 		REQUIRE(v.size() == 4);
 		REQUIRE(v[a] == 12);
 		REQUIRE(v[b] == 34);
@@ -35,6 +41,8 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		REQUIRE(v[d] == 78);
 		v.erase(b);
 		v.erase(c);
+		REQUIRE(!v.is_valid(b));
+		REQUIRE(!v.is_valid(c));
 		REQUIRE(v.size() == 2);
 		v.add(90);
 		std::vector<int> values;
@@ -120,10 +128,13 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 	SECTION("erasing at the ends") {
 		auto a = v.add(111);
 		auto b = v.add(222);
+		REQUIRE(v.is_valid(a));
+		REQUIRE(v.is_valid(b));
 		v.add(333);
 		v.add(444);
 		v.add(555);
 		v.erase(a);
+		REQUIRE(!v.is_valid(a));
 		REQUIRE(v.size() == 4);
 		REQUIRE(*v.begin() == 222);
 		v.erase(b);
@@ -170,7 +181,9 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		auto erase_and_check = [&](uint32_t handle) {
 			const auto old_handles = get_handles(v);
 			const auto old_size = v.size();
+			REQUIRE (v.is_valid(handle));
 			v.erase(handle);
+			REQUIRE (!v.is_valid(handle));
 			const auto new_handles = get_handles(v);
 			const auto new_size = v.size();
 			REQUIRE (contains(old_handles, handle));
@@ -199,9 +212,15 @@ TEST_CASE("stable_vector", "[stable_vector]") {
 		auto a = v.add(111);
 		auto b = v.add(222);
 		auto c = v.add(333);
+		REQUIRE (v.is_valid(a));
+		REQUIRE (v.is_valid(b));
+		REQUIRE (v.is_valid(c));
 		v.erase(a);
 		v.erase(b);
 		v.erase(c);
+		REQUIRE (!v.is_valid(a));
+		REQUIRE (!v.is_valid(b));
+		REQUIRE (!v.is_valid(c));
 		v.add(444);
 		REQUIRE (v.size() == 1);
 		REQUIRE (v.begin() != v.end());
