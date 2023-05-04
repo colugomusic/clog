@@ -43,6 +43,15 @@ There are many ways of implementing this kind of container. This one has some sp
  
 If you never actually want to iterate over the elements, and just want a way to store things in a dynamic array and access them via index without the overhead of a map lookup, then there is also [simple_stable_vector.hpp](include/clog/simple_stable_vector.hpp) which requires a much smaller control block to keep track of empty positions. The interface is identical to `stable_vector` minus the `begin/end` functions.
 
+### Interface
+ - `add(<constructor args>) -> uint32_t` - Construct an element in-place and return the index
+ - `erase(uint32_t index) -> void` - Erase the element at the given index
+ - `erase(<iterator type> pos) -> void` - Erase the element at the given iterator position
+ - `is_valid(uint32_t index) const -> bool` - Returns true if there is an element at the given index
+ - `operator[](uint32_t index) [const] -> T&` - Return a reference to the element at the given index
+ - `size() const -> size_t` - Returns the number of elements in the vector
+ - `begin/end/rbegin/rend/cbegin/cend/crbegin/crend()` - Iterators for iterating
+
 ### Usage
 
 ```c++
