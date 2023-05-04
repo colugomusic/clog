@@ -41,7 +41,7 @@ There are many ways of implementing this kind of container. This one has some sp
  - Iterators and indices are never invalidated. It's safe to erase elements while iterating over the vector!
  - It's memory efficient in that the holes left behind by `erase()` are filled up again when new elements are added. You could also argue that it's not memory efficient because we are cramming in that 64-byte control block next to each element.
  
-If you never actually want to iterate over the elements, and just want a way to store things in a dynamic array and access them via index without the overhead of a map lookup, then there is also [simple_stable_vector.hpp](include/clog/simple_stable_vector.hpp) which requires a much smaller control block to keep track of empty positions. The interface is identical to `stable_vector` minus the `begin/end` functions.
+If you never actually want to iterate over the elements, and just want a way to store things in a dynamic array and access them via index without the overhead of a map lookup, then there is also [simple_stable_vector.hpp](include/clog/simple_stable_vector.hpp) which requires a much smaller control block to keep track of empty positions (just one `bool`). The interface is identical to `stable_vector` minus the `begin/end` functions.
 
 ### Interface
  - `add(<constructor args>) -> uint32_t` - Construct an element in-place and return the index
