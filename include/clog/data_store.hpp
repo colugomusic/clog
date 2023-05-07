@@ -70,6 +70,9 @@ public:
 
     struct handle_t {
         uint64_t value{0};
+		handle_t() = default;
+		handle_t(uint64_t value) : value{value} {}
+		operator uint64_t() const { return value; }
         auto operator++() -> handle_t& { value++; return *this; }
         auto operator++(int) -> handle_t { handle_t old{*this}; operator++(); return old; }
         auto operator==(const handle_t& rhs) const { return value == rhs.value; }
