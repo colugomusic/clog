@@ -78,6 +78,12 @@ public:
 		}
 		size_--;
 	}
+	auto at(uint32_t index) -> T& {
+		return cells_.at(index).get_value();
+	}
+	auto at(uint32_t index) const -> const T& {
+		return cells_.at(index).get_value();
+	}
 	auto is_valid(uint32_t index) const -> bool {
 		return size_ > 0 && index < size_ && cells_[index].is_occupied();
 	}
