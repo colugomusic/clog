@@ -72,6 +72,7 @@ public:
         uint64_t value{0};
 		handle_t() = default;
 		handle_t(uint64_t value) : value{value} {}
+		operator bool() const { return value > 0; }
 		operator uint64_t() const { return value; }
         auto operator++() -> handle_t& { value++; return *this; }
         auto operator++(int) -> handle_t { handle_t old{*this}; operator++(); return old; }
@@ -117,6 +118,10 @@ public:
 		return book_.get_index(handle);
 	}
 
+	auto get_id(size_t index) const -> handle_t {
+		return book_.get_handle(index);
+	}
+
 	template <typename T> auto get() -> data_vector<T>& { return std::get<data_vector<T>>(vectors_); }
 	template <typename T> auto get() const -> const data_vector<T>& { return std::get<data_vector<T>>(vectors_); }
 	template <typename T> auto get(handle_t handle) -> T& { return get<T>(get_index(handle)); }
@@ -157,7 +162,7 @@ private:
 		std::unordered_map<size_t, handle_t> index_to_handle_;
 	};
 
-	handle_t handle_{0};
+	handle_t handle_{1};
 	vectors vectors_;
 	bimap book_;
 };
