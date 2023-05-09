@@ -6,6 +6,17 @@
 
 namespace clg {
 
+class invalid_handle : public std::logic_error {
+public:
+    explicit invalid_handle(const std::string& what) : std::logic_error(what) {}
+    explicit invalid_handle(const char* what) : std::logic_error(what) {}
+};
+class invalid_index : public std::logic_error {
+public:
+    explicit invalid_index(const std::string& what) : std::logic_error(what) {}
+    explicit invalid_index(const char* what) : std::logic_error(what) {}
+};
+
 template <typename T>
 class data_vector {
 public:
@@ -43,8 +54,10 @@ public:
 		return size();
 	}
 
-	auto operator[](size_t index) -> T& { return data_[index]; }
-	auto operator[](size_t index) const -> const T& { return data_[index]; }
+	auto at(size_t index) -> T& { return data_.at(index); }
+	auto at(size_t index) const -> const T& { return data_.at(index); }
+	auto operator[](size_t index) -> T& { return at(index); }
+	auto operator[](size_t index) const -> const T& { return at(index); }
 	auto size() const { return data_.size(); }
 	auto begin() { return data_.begin(); }
 	auto begin() const { return data_.begin(); }
@@ -124,10 +137,22 @@ public:
 
 	template <typename T> auto get() -> data_vector<T>& { return std::get<data_vector<T>>(vectors_); }
 	template <typename T> auto get() const -> const data_vector<T>& { return std::get<data_vector<T>>(vectors_); }
-	template <typename T> auto get(handle_t handle) -> T& { return get<T>(get_index(handle)); }
-	template <typename T> auto get(handle_t handle) const -> const T& { return get<T>(get_index(handle)); }
-	template <typename T> auto get(size_t index) -> T& { return std::get<data_vector<T>>(vectors_)[index]; }
-	template <typename T> auto get(size_t index) const -> const T& { return std::get<data_vector<T>>(vectors_)[index]; }
+	template <typename T> auto get(handle_t handle) -> T& {
+		try { return get<T>(get_index(handle)); }
+		catch (const std::out_of_range& err) { throw invalid_handle{err.what()}; }
+	}
+	template <typename T> auto get(handle_t handle) const -> const T& {
+		try { return get<T>(get_index(handle)); }
+		catch (const std::out_of_range& err) { throw invalid_handle{err.what()}; }
+	}
+	template <typename T> auto get(size_t index) -> T& {
+		try { return std::get<data_vector<T>>(vectors_)[index]; }
+		catch (const std::out_of_range& err) { throw invalid_index{err.what()}; }
+	}
+	template <typename T> auto get(size_t index) const -> const T& {
+		try { return std::get<data_vector<T>>(vectors_)[index]; }
+		catch (const std::out_of_range& err) { throw invalid_index{err.what()}; }
+	}
 
 private:
 
