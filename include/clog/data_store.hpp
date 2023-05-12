@@ -1,5 +1,8 @@
+#pragma once
+
 #include <cassert>
 #include <cstdint>
+#include <stdexcept>
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -77,45 +80,60 @@ private:
 	std::vector<T> data_;
 };
 
+struct data_handle {
+	uint64_t value{0};
+	data_handle() = default;
+	constexpr data_handle(uint64_t value) : value{value} {}
+	operator bool() const { return value > 0; }
+	operator uint64_t() const { return value; }
+	auto operator++() -> data_handle& { value++; return *this; }
+	auto operator++(int) -> data_handle { data_handle old{*this}; operator++(); return old; }
+	auto operator==(const data_handle& rhs) const { return value == rhs.value; }
+	auto operator<(const data_handle& rhs) const { return value < rhs.value; }
+};
+
+struct data_index {
+	size_t value{0};
+	data_index() = default;
+	constexpr data_index(size_t value) : value{value} {}
+	operator size_t() const { return value; }
+	auto operator<(const data_index& rhs) const { return value < rhs.value; }
+};
+
+struct data_handle_hash {
+	auto operator()(const data_handle& handle) const -> size_t {
+		return std::hash<int64_t>()(handle.value);
+	}
+};
+
+struct data_index_hash {
+	auto operator()(const data_index& index) const -> size_t {
+		return std::hash<size_t>()(index.value);
+	}
+};
+
 template <typename... Types>
 class data_store {
 public:
 
-    struct handle_t {
-        uint64_t value{0};
-		handle_t() = default;
-		handle_t(uint64_t value) : value{value} {}
-		operator bool() const { return value > 0; }
-		operator uint64_t() const { return value; }
-        auto operator++() -> handle_t& { value++; return *this; }
-        auto operator++(int) -> handle_t { handle_t old{*this}; operator++(); return old; }
-        auto operator==(const handle_t& rhs) const { return value == rhs.value; }
-    };
-
-    struct handle_hash_t {
-        auto operator()(const handle_t& handle) const -> std::size_t {
-            return std::hash<int64_t>()(handle.value);
-        }
-    };
-
-	auto add() -> handle_t {
+	auto add() -> data_handle {
 		const auto handle{handle_++};
 		const auto index{(std::get<data_vector<Types>>(vectors_).push_back(), ...)};
 		book_.set(handle, index);
 		return handle;
 	}
 
-	auto add(Types&&... values) -> handle_t {
+	auto add(Types&&... values) -> data_handle {
 		const auto handle{handle_++};
 		const auto index{(std::get<data_vector<Types>>(vectors_).push_back(std::forward<Types>(values)), ...)};
 		book_.set(handle, index);
 		return handle;
 	}
 
-	auto erase(handle_t handle) -> void {
+	auto erase(data_handle handle) -> void {
 		const auto index{get_index(handle)};
 		const auto new_size{(std::get<data_vector<Types>>(vectors_).erase(index), ...)};
-		if (new_size > 0 && index < new_size) {
+		if (new_size > 0 && index < clg::data_index{new_size}) {
 			// The new vector size is the index of the element
 			// that was moved into the erased element's place.
 			const auto moved_handle{book_.get_handle(new_size)};
@@ -127,29 +145,29 @@ public:
 	// Returns the current index for the specified handle.
 	// The returned index will be invalidated by later
 	// calls to erase().
-	auto get_index(handle_t handle) const -> size_t {
+	auto get_index(data_handle handle) const -> data_index {
 		return book_.get_index(handle);
 	}
 
-	auto get_id(size_t index) const -> handle_t {
+	auto get_id(data_index index) const -> data_handle {
 		return book_.get_handle(index);
 	}
 
 	template <typename T> auto get() -> data_vector<T>& { return std::get<data_vector<T>>(vectors_); }
 	template <typename T> auto get() const -> const data_vector<T>& { return std::get<data_vector<T>>(vectors_); }
-	template <typename T> auto get(handle_t handle) -> T& {
+	template <typename T> auto get(data_handle handle) -> T& {
 		try { return get<T>(get_index(handle)); }
 		catch (const std::out_of_range& err) { throw invalid_handle{err.what()}; }
 	}
-	template <typename T> auto get(handle_t handle) const -> const T& {
+	template <typename T> auto get(data_handle handle) const -> const T& {
 		try { return get<T>(get_index(handle)); }
 		catch (const std::out_of_range& err) { throw invalid_handle{err.what()}; }
 	}
-	template <typename T> auto get(size_t index) -> T& {
+	template <typename T> auto get(data_index index) -> T& {
 		try { return std::get<data_vector<T>>(vectors_)[index]; }
 		catch (const std::out_of_range& err) { throw invalid_index{err.what()}; }
 	}
-	template <typename T> auto get(size_t index) const -> const T& {
+	template <typename T> auto get(data_index index) const -> const T& {
 		try { return std::get<data_vector<T>>(vectors_)[index]; }
 		catch (const std::out_of_range& err) { throw invalid_index{err.what()}; }
 	}
@@ -159,35 +177,35 @@ private:
 	using vectors = std::tuple<data_vector<Types>...>;
 
 	struct bimap {
-		auto erase(handle_t handle, size_t index) -> void {
+		auto erase(data_handle handle, data_index index) -> void {
 			handle_to_index_.erase(handle);
 			index_to_handle_.erase(index);
 		}
 
-		auto get_index(handle_t handle) const -> size_t {
+		auto get_index(data_handle handle) const -> data_index {
 			const auto pos{handle_to_index_.find(handle)};
 			assert (pos != handle_to_index_.end());
 			return pos->second;
 		}
 
-		auto get_handle(size_t index) const -> handle_t {
+		auto get_handle(data_index index) const -> data_handle {
 			const auto pos{index_to_handle_.find(index)};
 			assert (pos != index_to_handle_.end());
 			return pos->second;
 		}
 
-		auto set(handle_t handle, size_t index) -> void {
+		auto set(data_handle handle, data_index index) -> void {
 			handle_to_index_[handle] = index;
 			index_to_handle_[index] = handle;
 		}
 
 	private:
 
-		std::unordered_map<handle_t, size_t, handle_hash_t> handle_to_index_;
-		std::unordered_map<size_t, handle_t> index_to_handle_;
+		std::unordered_map<data_handle, data_index, data_handle_hash> handle_to_index_;
+		std::unordered_map<data_index, data_handle, data_index_hash> index_to_handle_;
 	};
 
-	handle_t handle_{1};
+	data_handle handle_{1};
 	vectors vectors_;
 	bimap book_;
 };
