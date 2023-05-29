@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include "auto_array.hpp"
 #include "stable_vector.hpp"
 
 namespace clg {
@@ -120,8 +121,7 @@ private:
 	clg::stable_vector<cn_record> cns_;
 };
 
-class store
-{
+class store {
 public:
 	auto operator+=(cn && c) -> void {
 		connections_.push_back(std::move(c));
@@ -131,6 +131,60 @@ public:
 	}
 private:
 	std::vector<cn> connections_;
+};
+
+struct watcher {
+	template <typename Category>
+	auto clear_watchers(Category category) -> void {
+		clear_watchers(static_cast<size_t>(category));
+	}
+	auto clear_watchers(size_t category) {
+		stores_[category] = {};
+	}
+	template <typename Category>
+	auto watch(Category category, clg::cn&& cn) -> void {
+		watch(static_cast<size_t>(category), std::move(cn));
+	}
+	auto watch(size_t category, clg::cn&& cn) -> void {
+		stores_[category] += std::move(cn);
+	}
+private:
+	auto_array<clg::store> stores_;
+};
+
+template <typename Key>
+struct key_watcher {
+	template <typename Category>
+	auto clear_watchers(Category category) -> void {
+		clear_watchers(static_cast<size_t>(category));
+	}
+	template <typename Category>
+	auto clear_watchers(Category category, Key key) -> void {
+		clear_watchers(static_cast<size_t>(category), key);
+	}
+	auto clear_watchers(size_t category) -> void {
+		stores_[category] = {};
+	}
+	auto clear_watchers(size_t category, Key key) -> void {
+		key_stores_[category][key] = {};
+	}
+	template <typename Category>
+	auto watch(Category category, clg::cn&& cn) -> void {
+		watch(static_cast<size_t>(category), std::move(cn));
+	}
+	template <typename Category>
+	auto watch(Category category, Key key, clg::cn&& cn) -> void {
+		watch(static_cast<size_t>(category), key, std::move(cn));
+	}
+	auto watch(size_t category, clg::cn&& cn) -> void {
+		stores_[category] += std::move(cn);
+	}
+	auto watch(size_t category, Key key, clg::cn&& cn) -> void {
+		key_stores_[category][key] += std::move(cn);
+	}
+private:
+	auto_array<clg::store> stores_;
+	auto_array<std::unordered_map<Key, clg::store>> key_stores_;
 };
 
 } // clg
