@@ -135,10 +135,10 @@ private:
 
 struct watcher {
 	template <typename Category>
-	auto clear_watchers(Category category) -> void {
-		clear_watchers(static_cast<size_t>(category));
+	auto clear(Category category) -> void {
+		clear(static_cast<size_t>(category));
 	}
-	auto clear_watchers(size_t category) {
+	auto clear(size_t category) {
 		stores_[category] = {};
 	}
 	template <typename Category>
@@ -155,17 +155,17 @@ private:
 template <typename Key>
 struct key_watcher {
 	template <typename Category>
-	auto clear_watchers(Category category) -> void {
-		clear_watchers(static_cast<size_t>(category));
+	auto clear(Category category) -> void {
+		clear(static_cast<size_t>(category));
 	}
 	template <typename Category>
-	auto clear_watchers(Category category, Key key) -> void {
-		clear_watchers(static_cast<size_t>(category), key);
+	auto clear(Category category, Key key) -> void {
+		clear(static_cast<size_t>(category), key);
 	}
-	auto clear_watchers(size_t category) -> void {
+	auto clear(size_t category) -> void {
 		stores_[category] = {};
 	}
-	auto clear_watchers(size_t category, Key key) -> void {
+	auto clear(size_t category, Key key) -> void {
 		key_stores_[category][key] = {};
 	}
 	template <typename Category>
