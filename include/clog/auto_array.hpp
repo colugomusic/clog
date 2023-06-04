@@ -22,7 +22,7 @@ struct auto_array : private std::vector<T> {
 	}
 	auto operator[](size_type pos) -> T& {
 		if (pos >= size()) {
-			resize(pos+1);
+			std::vector<T>::resize(pos+1);
 		}
 		return std::vector<T>::operator[](pos);
 	}
