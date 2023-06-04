@@ -4,7 +4,7 @@ namespace clg {
 template <typename T>
 struct auto_array : public std::vector<T> {
 	auto operator[](typename std::vector<T>::size_type pos) -> T& {
-		if (pos >= size()) {
+		if (pos >= std::vector<T>::size()) {
 			std::vector<T>::resize(pos+1);
 		}
 		return std::vector<T>::operator[](pos);
