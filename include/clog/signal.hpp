@@ -1,6 +1,7 @@
 #pragma once
 
 #include <functional>
+#include <unordered_map>
 #include "auto_array.hpp"
 #include "stable_vector.hpp"
 
@@ -138,7 +139,7 @@ struct watcher {
 	auto clear(Category category) -> void {
 		clear(static_cast<size_t>(category));
 	}
-	auto clear(size_t category) {
+	auto clear(size_t category) -> void {
 		stores_[category] = {};
 	}
 	template <typename Category>
