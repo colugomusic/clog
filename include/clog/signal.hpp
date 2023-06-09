@@ -135,6 +135,20 @@ private:
 };
 
 struct watcher {
+	auto clear() -> void {
+		store_ = {};
+	}
+	auto watch(clg::cn&& cn) -> void {
+		store_ += std::move(cn);
+	}
+private:
+	clg::store store_;
+};
+
+struct multi_watcher {
+	auto clear() -> void {
+		stores_.clear();
+	}
 	template <typename Category>
 	auto clear(Category category) -> void {
 		clear(static_cast<size_t>(category));
