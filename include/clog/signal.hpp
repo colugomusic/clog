@@ -124,11 +124,19 @@ private:
 
 class store {
 public:
+	store() = default;
+	store(const store&) = delete;
+	store(store&&) noexcept = default;
+	store& operator=(const store&) = delete;
+	store& operator=(store&&) noexcept = default;
 	auto operator+=(cn && c) -> void {
 		connections_.push_back(std::move(c));
 	}
 	auto is_empty() const {
 		return connections_.empty();
+	}
+	auto clear() {
+		connections_.clear();
 	}
 private:
 	std::vector<cn> connections_;
@@ -145,61 +153,61 @@ private:
 	clg::store store_;
 };
 
-struct multi_watcher {
-	auto clear() -> void {
-		stores_.clear();
-	}
-	template <typename Category>
-	auto clear(Category category) -> void {
-		clear(static_cast<size_t>(category));
-	}
-	auto clear(size_t category) -> void {
-		stores_[category] = {};
-	}
-	template <typename Category>
-	auto watch(Category category, clg::cn&& cn) -> void {
-		watch(static_cast<size_t>(category), std::move(cn));
-	}
-	auto watch(size_t category, clg::cn&& cn) -> void {
-		stores_[category] += std::move(cn);
-	}
-private:
-	auto_array<clg::store> stores_;
-};
+//struct multi_watcher {
+//	auto clear() -> void {
+//		stores_.clear();
+//	}
+//	template <typename Category>
+//	auto clear(Category category) -> void {
+//		clear(static_cast<size_t>(category));
+//	}
+//	auto clear(size_t category) -> void {
+//		stores_[category] = {};
+//	}
+//	template <typename Category>
+//	auto watch(Category category, clg::cn&& cn) -> void {
+//		watch(static_cast<size_t>(category), std::move(cn));
+//	}
+//	auto watch(size_t category, clg::cn&& cn) -> void {
+//		stores_[category] += std::move(cn);
+//	}
+//private:
+//	auto_array<clg::store> stores_;
+//};
 
-template <typename Key>
-struct key_watcher {
-	template <typename Category>
-	auto clear(Category category) -> void {
-		clear(static_cast<size_t>(category));
-	}
-	template <typename Category>
-	auto clear(Category category, Key key) -> void {
-		clear(static_cast<size_t>(category), key);
-	}
-	auto clear(size_t category) -> void {
-		stores_[category] = {};
-	}
-	auto clear(size_t category, Key key) -> void {
-		key_stores_[category][key] = {};
-	}
-	template <typename Category>
-	auto watch(Category category, clg::cn&& cn) -> void {
-		watch(static_cast<size_t>(category), std::move(cn));
-	}
-	template <typename Category>
-	auto watch(Category category, Key key, clg::cn&& cn) -> void {
-		watch(static_cast<size_t>(category), key, std::move(cn));
-	}
-	auto watch(size_t category, clg::cn&& cn) -> void {
-		stores_[category] += std::move(cn);
-	}
-	auto watch(size_t category, Key key, clg::cn&& cn) -> void {
-		key_stores_[category][key] += std::move(cn);
-	}
-private:
-	auto_array<clg::store> stores_;
-	auto_array<std::unordered_map<Key, clg::store>> key_stores_;
-};
+//template <typename Key>
+//struct key_watcher {
+//	template <typename Category>
+//	auto clear(Category category) -> void {
+//		clear(static_cast<size_t>(category));
+//	}
+//	template <typename Category>
+//	auto clear(Category category, Key key) -> void {
+//		clear(static_cast<size_t>(category), key);
+//	}
+//	auto clear(size_t category) -> void {
+//		stores_[category] = {};
+//	}
+//	auto clear(size_t category, Key key) -> void {
+//		key_stores_[category][key] = {};
+//	}
+//	template <typename Category>
+//	auto watch(Category category, clg::cn&& cn) -> void {
+//		watch(static_cast<size_t>(category), std::move(cn));
+//	}
+//	template <typename Category>
+//	auto watch(Category category, Key key, clg::cn&& cn) -> void {
+//		watch(static_cast<size_t>(category), key, std::move(cn));
+//	}
+//	auto watch(size_t category, clg::cn&& cn) -> void {
+//		stores_[category] += std::move(cn);
+//	}
+//	auto watch(size_t category, Key key, clg::cn&& cn) -> void {
+//		key_stores_[category][key] += std::move(cn);
+//	}
+//private:
+//	auto_array<clg::store> stores_;
+//	auto_array<std::unordered_map<Key, clg::store>> key_stores_;
+//};
 
 } // clg
