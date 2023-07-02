@@ -91,7 +91,7 @@ public:
 	template <typename Slot>
 	[[nodiscard]] auto connect(Slot && slot) -> cn {
 		cn_record record;
-		record.cb = std::move(slot); 
+		record.cb = std::forward<Slot>(slot); 
 		const auto handle{cns_.add(std::move(record))};
 		detail::cn_body body;
 		update(&body);
