@@ -74,17 +74,12 @@ auto find(const std::vector<T>& vector, const U& value, Compare compare = Compar
 // Insert the value into the sorted vector.
 // Precondition: The vector is sorted.
 template <typename T, typename U, typename Compare = std::less<T>>
-auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
-{
-	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
-
-	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), value, compare) };
-
-	pos = vector->insert(pos, std::forward<U>(value));
-
+auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool> {
+	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare)); 
+	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), value, compare) }; 
+	pos = vector->insert(pos, std::forward<U>(value)); 
 	return { pos, true };
 }
-
 // Add the range to the vector and then sort the entire vector.
 // The vector does not need to be pre-sorted.
 template <typename T, typename Begin, typename End>
