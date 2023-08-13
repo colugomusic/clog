@@ -58,7 +58,7 @@ public:
 		return cached_base<T>::value_;
 	}
 
-	auto operator*() const { return get(); }
+	auto& operator*() const { return get(); }
 	auto operator->() const { return &get(); }
 	operator T() const { return get(); }
 	operator const T&() const { return get(); }
