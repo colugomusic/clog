@@ -34,9 +34,6 @@ struct cell_t {
 		initialize_value(std::move(rhs.get_value()));
 		rhs.destroy_value();
 	}
-	~cell_t() {
-		destroy_value();
-	}
 	template <typename... Args>
 	auto initialize_value(Args&&... args) -> void {
 		::new(std::addressof(storage_)) T{std::forward<Args>(args)...};
@@ -161,6 +158,39 @@ public:
 	using reverse_iterator_t = stable_vector_detail::reverse_iterator_t<T>;
 	using const_iterator_t = stable_vector_detail::const_iterator_t<T>;
 	using const_reverse_iterator_t = stable_vector_detail::const_reverse_iterator_t<T>;
+	stable_vector() = default;
+	stable_vector(const stable_vector& rhs) = default;
+	stable_vector& operator=(const stable_vector& rhs) = default;
+	stable_vector(stable_vector&& rhs)
+		: front_    {rhs.front_}
+		, back_     {rhs.back_}
+		, position_ {rhs.position_}
+		, size_     {rhs.size_}
+		, cells_    {std::move(rhs.cells_)}
+	{
+		rhs.front_ = -1;
+		rhs.size_ = 0;
+	}
+	stable_vector& operator=(stable_vector&& rhs) noexcept {
+		front_    = rhs.front_;
+		back_     = rhs.back_;
+		position_ = rhs.position_;
+		size_     = rhs.size_;
+		cells_    = std::move(rhs.cells_);
+		rhs.front_ = -1;
+		rhs.size_ = 0;
+		return *this;
+	}
+	~stable_vector() {
+		auto index{front_};
+		while (index >= 0) {
+			auto& cell{cells_[index]};
+			auto& info{cell.get_info()};
+			auto next{info.next};
+			cell.destroy_value();
+			index = next;
+		}
+	}
 	template <typename... Args>
 	auto add(Args&&... args) -> uint32_t {
 		if (size_t(position_) == cells_.size()) {
