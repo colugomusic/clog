@@ -5,7 +5,14 @@
 #include <vector>
 
 #ifndef CLOG_ASSERT
-#define CLOG_ASSERT assert
+#define CLOG_ASSERT(x) assert(x)
+#endif
+#ifndef CLOG_EXPENSIVE_ASSERT
+	#ifdef _DEBUG
+	#define CLOG_EXPENSIVE_ASSERT(x) assert(x)
+	#else
+	#define CLOG_EXPENSIVE_ASSERT(x) 
+	#endif
 #endif
 
 namespace clg {
@@ -17,7 +24,7 @@ namespace sorted {
 template <typename Begin, typename End, typename T, typename Compare = std::less<T>>
 auto contains(Begin begin, End end, const T& value, Compare compare = Compare{}) -> bool
 {
-	CLOG_ASSERT (std::is_sorted(begin, end, compare));
+	CLOG_EXPENSIVE_ASSERT (std::is_sorted(begin, end, compare));
 
 	return std::binary_search(begin, end, value, compare);
 }
@@ -33,7 +40,7 @@ auto contains(const std::vector<T>& vector, const T& value, Compare compare = Co
 template <typename T, typename Compare = std::less<T>>
 auto erase_all(std::vector<T>* vector, const T& value, Compare compare = Compare{})
 {
-	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_EXPENSIVE_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	const auto [beg, end] = std::equal_range(std::cbegin(*vector), std::cend(*vector), value, compare);
 
@@ -49,7 +56,7 @@ auto erase_all(std::vector<T>* vector, const T& value, Compare compare = Compare
 template <typename Begin, typename End, typename T, typename Compare = std::less<T>>
 auto find(Begin begin, End end, const T& value, Compare compare = Compare{})
 {
-	CLOG_ASSERT (std::is_sorted(begin, end, compare));
+	CLOG_EXPENSIVE_ASSERT (std::is_sorted(begin, end, compare));
 
 	const auto pos { std::lower_bound(begin, end, value, compare) };
 
@@ -75,7 +82,7 @@ auto find(const std::vector<T>& vector, const U& value, Compare compare = Compar
 // Precondition: The vector is sorted.
 template <typename T, typename U, typename Compare = std::less<T>>
 auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool> {
-	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare)); 
+	CLOG_EXPENSIVE_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare)); 
 	auto pos { std::upper_bound(std::begin(*vector), std::end(*vector), value, compare) }; 
 	pos = vector->insert(pos, std::forward<U>(value)); 
 	return { pos, true };
@@ -97,7 +104,7 @@ namespace unique {
 template <typename T, typename U, typename Compare = std::less<T>>
 auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> std::pair<typename std::vector<T>::iterator, bool>
 {
-	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_EXPENSIVE_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	auto pos { std::lower_bound(std::begin(*vector), std::end(*vector), value, compare) };
 
@@ -118,7 +125,7 @@ auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{}) -> s
 template <typename T, typename U, typename Compare = std::less<T>>
 auto overwrite(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 {
-	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_EXPENSIVE_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	auto pos { find(*vector, value, compare) };
 
@@ -146,7 +153,7 @@ namespace checked {
 template <typename T, typename U, typename Compare = std::less<T>>
 auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 {
-	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_EXPENSIVE_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	const auto [pos, success] = unique::insert(vector, std::forward<U>(value), compare);
 
@@ -162,7 +169,7 @@ auto insert(std::vector<T>* vector, U&& value, Compare compare = Compare{})
 template <typename T, typename Compare = std::less<T>>
 auto erase(std::vector<T>* vector, const T& value, Compare compare = Compare{}) -> void
 {
-	CLOG_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
+	CLOG_EXPENSIVE_ASSERT (std::is_sorted(std::cbegin(*vector), std::cend(*vector), compare));
 
 	const auto result = sorted::erase_all(vector, value, compare);
 
