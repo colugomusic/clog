@@ -6,6 +6,7 @@ namespace clg {
 
 template <typename Services, typename Model, typename Action, typename PP>
 struct uda {
+	uda() = default;
 	uda(Services services)
 		: services_(std::move(services))
 	{}
