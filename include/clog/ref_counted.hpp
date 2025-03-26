@@ -1,5 +1,7 @@
 #pragma once
 
+#include <compare>
+
 namespace clg {
 
 template <typename RefCounter>
@@ -38,6 +40,7 @@ struct ref_counted {
 		return *this;
 	}
 	[[nodiscard]] auto get_counter() const -> RefCounter { return counter_; }
+	auto operator<=>(const ref_counted&) const = default;
 private:
 	RefCounter counter_;
 };
