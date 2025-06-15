@@ -1,10 +1,14 @@
 #pragma once
 
-#include <compare>
-
 namespace clg {
 
-template <typename RefCounter>
+template <typename T>
+concept ref_counter = requires(T t) {
+	{ t.ref()   } -> std::same_as<void>;
+	{ t.unref() } -> std::same_as<void>;
+};
+
+template <ref_counter RefCounter>
 struct ref_counted {
 	ref_counted() = default;
 	ref_counted(RefCounter counter)
@@ -40,7 +44,7 @@ struct ref_counted {
 		return *this;
 	}
 	[[nodiscard]] auto get_counter() const -> RefCounter { return counter_; }
-	auto operator<=>(const ref_counted&) const = default;
+	auto operator==(const ref_counted&) const -> bool = default;
 private:
 	RefCounter counter_;
 };
